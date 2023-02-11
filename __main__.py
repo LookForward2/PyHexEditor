@@ -4,8 +4,8 @@ from Window.QHexWindow import QHexWindow
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    app.setApplicationName('Hex')
-    app.setOrganizationName('Surorie')
+    app.setApplicationName('PyHexEditor')
+    app.setOrganizationName('OrganizationName')
     app.setStyle('Fusion')
-    widget = QHexWindow()
+    widget = QHexWindow(app.applicationName())
     sys.exit(app.exec_())
