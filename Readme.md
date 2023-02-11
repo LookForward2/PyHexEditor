@@ -1,4 +1,14 @@
-### QHexEdit is a binary editor widget for Qt.
+PyHexEditor is forked from Andres6936/Hex that in fact is QHexEdit which functional partly ported to Python. 
+
+https://github.com/Andres6936/Hex
+
+The goal is to add into PyHexEditor base functional of QHexEdit.
+
+-----------------------------------------------------------------------------------------------------------------------
+
+About QHexEdit:
+
+### QHexEdit is a binary editor widget for Qt writing on C++.
 
 It is a simple editor for binary data, just like QPlainTextEdit is for text data.
 
