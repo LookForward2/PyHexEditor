@@ -1,16 +1,17 @@
 import sys
 
-from PyQt5.QtCore import QByteArray, QObject, QIODevice, QBuffer
+from PyQt5.QtCore import QObject, QIODevice, QBuffer
 
-NORMAL = 1
+NORMAL = b'\x00'
+HIGHLIGHTED = b'\x01'
 CHUNK_SIZE = 0x1000
 BUFFER_SIZE = 0x10000
 
 
 class Chunk:
     def __init__(self):
-        self.data = QByteArray()
-        self.dataChanged = QByteArray()
+        self.data = bytearray
+        self.dataChanged = bytearray
         self.absPos: int = 0
 
 
@@ -18,7 +19,7 @@ class Chunks(QObject):
     def __init__(self, parent: QObject = None, device: QIODevice = None):
         super().__init__(parent)
         self.device = QBuffer(self) if device is None else device
-        self.chunks: [Chunk] = []
+        self.chunks: list[Chunk] = []
         self.position = 0
         self.size = 0
 
@@ -38,11 +39,11 @@ class Chunks(QObject):
         self.position = 0
         return status
 
-    def data(self, position: int, maxSize: int = -1, highlighted: QByteArray = None) -> QByteArray:
+    def data(self, position: int, maxSize: int = -1, highlighted: bytearray = None) -> bytearray:
         delta = 0
         chunkIdx = 0
         chunk = Chunk()
-        buffer = QByteArray()
+        buffer = bytearray()
         if highlighted:
             highlighted.clear()
         if position >= self.size:
@@ -68,18 +69,18 @@ class Chunks(QObject):
                     count = 0
                     chunkIdx += 1
                     chunkOfs = position - chunk.absPos
-                    if maxSize > chunk.data.size() - chunkOfs:
-                        count = chunk.data.size() - chunkOfs
-                        delta += CHUNK_SIZE - chunk.data.size()
+                    if maxSize > len(chunk.data) - chunkOfs:
+                        count = len(chunk.data) - chunkOfs
+                        delta += CHUNK_SIZE - len(chunk.data)
                     else:
                         count = maxSize
 
                     if count > 0:
-                        buffer += chunk.data.mid(chunkOfs, count)
+                        buffer += chunk.data[chunkOfs:chunkOfs+count]
                         maxSize -= count
                         position += count
                         if highlighted:
-                            highlighted += chunk.dataChanged.mid(chunkOfs, count)
+                            highlighted += chunk.dataChanged[chunkOfs:chunkOfs+count]
             if maxSize > 0 and position < chunk.absPos:
                 byteCount = 0
                 if (chunk.absPos - position) > maxSize:
@@ -91,7 +92,7 @@ class Chunks(QObject):
                 readBuffer = self.device.read(byteCount)
                 buffer += readBuffer
                 if highlighted:
-                    highlighted += QByteArray(readBuffer.size(), NORMAL)
+                    highlighted += bytearray(len(readBuffer), NORMAL) # b'x00' filled bytearray
                 position += len(readBuffer)
         self.device.close()
         return buffer
@@ -108,31 +109,123 @@ class Chunks(QObject):
         return status
 
     def setDataChanged(self, position: int, dataChanged: bool) -> None:
-        pass
+        print('Chunks.setDataChanged')
+        if 0 <= self.position < self.size:
+            chunkIdx = self.getChunkIndex(position)
+            posInBa = position - self.chunks[chunkIdx].absPos
+            self.chunks[chunkIdx].dataChanged[posInBa] = dataChanged
 
     def dataChanged(self, position: int) -> bool:
-        pass
+        print('Chunks.dataChanged')
+        highlighted = bytearray()
+        self.data(position, 1, highlighted)
+        return bool(highlighted[0])
 
-    def indexOf(self, array: QByteArray, _from: int) -> int:
-        pass
+    def indexOf(self, array: bytearray, _from: int) -> int:
+        res = -1
+        for pos in range(_from, self.size, BUFFER_SIZE):
+            buffer = self.data(pos, BUFFER_SIZE + len(array) - 1)
+            findPos = buffer.find(array)
+            if findPos >= 0:
+                res = pos + findPos
+                break
+        return res
 
-    def lastIndexOf(self, array: QByteArray, _from: int) -> int:
-        pass
+    def lastIndexOf(self, array: bytearray, _from: int) -> int:
+        res = -1
+        for pos in range(_from, 0, -BUFFER_SIZE):
+            sPos = pos - BUFFER_SIZE - len(array) + 1
+            if sPos < 0: sPos = 0
+            buffer = self.data(sPos, pos - sPos)
+            findPos = buffer.rfind(array)
+            if findPos >= 0:
+                res = sPos + findPos
+                break
+        return res
 
-    def insert(self, position: int, character: str) -> bool:
-        pass
+    def insert(self, position: int, character: bytes) -> bool:
+        if 0 <= position <= self.size:
+            if position == self.size:
+                chunkIdx = self.getChunkIndex(position - 1) # to insert before the last byte
+            else:
+                chunkIdx = self.getChunkIndex(position)
+            posInBa = position - self.chunks[chunkIdx].absPos
+            self.chunks[chunkIdx].data[posInBa:posInBa] = character[0:1]
+            self.chunks[chunkIdx].dataChanged[posInBa:posInBa] = bytes(b'\x01')
+            for i in range(chunkIdx+1, len(self.chunks)):
+                self.chunks[i].absPos += 1
+            self.size += 1
+            self.position = position
+            return True
+        else:
+            return False
 
-    def overwrite(self, position: int, character: str) -> bool:
-        pass
+    def overwrite(self, position: int, character: bytes) -> bool:
+        print('Chunks.overwrite')
+        if 0 <= position < self.size:
+            chunkIdx = self.getChunkIndex(position)
+            posInBa = position - self.chunks[chunkIdx].absPos
+            self.chunks[chunkIdx].data[posInBa:posInBa + 1] = character[0:1]
+            self.chunks[chunkIdx].dataChanged[posInBa:posInBa + 1] = bytes(b'\x01')
+            self.position = position
+            return True
+        else:
+            return False
 
     def removeAt(self, position: int) -> bool:
-        pass
+        if 0 <= position < self.size:
+            chunkIdx = self.getChunkIndex(position)
+            posInBa = position - self.chunks[chunkIdx].absPos
+            del self.chunks[chunkIdx].data[posInBa]
+            del self.chunks[chunkIdx].dataChanged[posInBa]
+            for i in range(chunkIdx + 1, len(self.chunks)):
+                self.chunks[i].absPos -= 1
+            self.size -= 1
+            self.position = position
+            return True
+        else:
+            return False        
+
+    def at(self, pos) -> bytes:
+        return bytes(self.data(pos, 1))
 
     def getPosition(self) -> int:
-        pass
+        return self.position
 
     def getSize(self) -> int:
-        pass
+        return self.size
 
     def __getitem__(self, item):
         pass
+
+    def getChunkIndex(self, absPos: int):
+        print('Chunks.getChunkIndex')
+        foundIdx = -1
+        insertIdx = 0
+        ioDelta = 0
+
+        for i in range(len(self.chunks)):
+            chunk = self.chunks[i]
+            if chunk.absPos <= absPos < chunk.absPos + len(chunk.data):
+                foundIdx = i
+                break
+            if absPos < chunk.absPos:
+                insertIdx = i
+                break
+            ioDelta += len(chunk.data) - CHUNK_SIZE
+            insertIdx = i + 1
+        
+        if foundIdx == -1:
+            newChunk = Chunk() 
+            readAbsPos = absPos - ioDelta
+            readPos = (readAbsPos >> 12) << 12 # & READ_CHUNK_MASK Q_INT64_C(0xfffffffffffff000)
+            self.device.open(QIODevice.ReadOnly)
+            self.device.seek(readPos)
+            newChunk.data = bytearray(self.device.read(CHUNK_SIZE))
+            self.device.close()
+            newChunk.absPos = absPos - (readAbsPos - readPos)
+            newChunk.dataChanged = bytearray(len(newChunk.data)) #zero filled bytearray
+            self.chunks.insert(insertIdx, newChunk)
+            foundIdx = insertIdx
+        
+        return foundIdx

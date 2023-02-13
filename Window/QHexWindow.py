@@ -85,7 +85,7 @@ class QHexWindow(QMainWindow):
             self.saveFile(self.currentFile)
 
     def saveAs(self):
-        filename = QFileDialog.getSaveFileName(self, 'Save As...', self.currentFile)
+        filename, _ = QFileDialog.getSaveFileName(self, 'Save As...', self.currentFile)
         if len(filename) == 0:
             return False
 

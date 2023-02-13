@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import QWidget, QAbstractScrollArea
 from PyQt5.QtGui import QColor, QFont, QResizeEvent, QPaintEvent, QMouseEvent, QKeyEvent, QPainter, QPalette, QPen, \
-    QBrush
+    QBrush, QKeySequence
 from PyQt5.QtCore import QByteArray, QIODevice, QPoint, QRect, Qt, QTimer
 from PyQt5.QtCore import pyqtSignal as QSignal
 from App.Chunks import Chunks
@@ -45,6 +45,7 @@ class QHexEdit(QAbstractScrollArea):
     dataChanged = QSignal()
     currentSizeChanged = QSignal(int)
     overwriteModeChanged = QSignal(bool)
+    currentAddressChanged = QSignal(int)
 
     # noinspection PyUnresolvedReferences
     def __init__(self, parent: QWidget = None):
@@ -86,7 +87,7 @@ class QHexEdit(QAbstractScrollArea):
         new data.
         """
 
-        self.highlighting = True
+        self.highlighting = False
         """
         Switch the highlighting feature on or of: true (show it), false (hide it).
         """
@@ -106,7 +107,7 @@ class QHexEdit(QAbstractScrollArea):
         Nibble. Maximum cursor position is factor two of data.size().
         """
 
-        self.absoluteCursorPosition = 0
+        #self.absoluteCursorPosition = 0
         """
         Absolute position of cursor, 1 Byte == 2 tics.
         """
@@ -181,7 +182,7 @@ class QHexEdit(QAbstractScrollArea):
         Set the font of the widget. Please use fixed width fonts like Mono or Courier.
         """
 
-        self.data = QByteArray()
+        self.data = bytearray()
         """
         Property data holds the content of QHexEdit. Call setData() to set the
         content of QHexEdit, data() returns the actual content. When calling setData()
@@ -197,11 +198,11 @@ class QHexEdit(QAbstractScrollArea):
         """
 
         self.penHighlighted = QPen()
-        self.undoStack = UndoStack()
-        self.dataShown = QByteArray()
+        self.undoStack = UndoStack(self.chunks, self)
+        self.dataShown = bytearray()
         self.brushSelection = QBrush()
-        self.hexDataShow = QByteArray()
-        self.markedShown = QByteArray()
+        self.hexDataShow = str()
+        self.markedShown = bytearray()
         self.brushHighlighted = QBrush()
 
         self.highlightingColor = QColor(0xff, 0xff, 0x99, 0xff)
@@ -236,7 +237,7 @@ class QHexEdit(QAbstractScrollArea):
     def setAddressArea(self, addressArea: bool) -> None:
         self.addressArea = addressArea
         self.adjust()
-        self.setCursorPosition(self.absoluteCursorPosition)
+        self.setCursorPosition(self.cursorPosition)
         self.viewport().update()
 
     def setAddressAreaColor(self, color: QColor) -> None:
@@ -256,7 +257,7 @@ class QHexEdit(QAbstractScrollArea):
         self.bytesPerLine = count
         self.hexCharInLine = count * 3 - 1
         self.adjust()
-        self.setCursorPosition(self.absoluteCursorPosition)
+        self.setCursorPosition(self.cursorPosition)
         self.viewport().update()
 
     def setCursorPosition(self, position: int) -> None:
@@ -287,6 +288,7 @@ class QHexEdit(QAbstractScrollArea):
     def setDataDevice(self, device: QIODevice) -> bool:
         status = self.chunks.setIODevice(device)
         self.dataChangedPrivate()
+        self.viewport().update()
         return status
 
     def dataAt(self, position: int, count: int) -> QByteArray:
@@ -361,6 +363,7 @@ class QHexEdit(QAbstractScrollArea):
         pass
 
     def paintEvent(self, event: QPaintEvent) -> None:
+        #print('paintEvent start')
         painter = QPainter(self.viewport())
         pxOffsetX = self.horizontalScrollBar().value()
         if event.rect() != self.cursorRect:
@@ -369,8 +372,10 @@ class QHexEdit(QAbstractScrollArea):
             painter.fillRect(event.rect(), self.viewport().palette().color(QPalette.Base))
             if self.addressArea:
                 painter.fillRect(
-                    QRect(-pxOffsetX, event.rect().top(), self.pxPosHexX - self.pxGapAdrHex // 2, self.height()),
-                    self.addressAreaColor)
+                    QRect(-pxOffsetX, event.rect().top(), self.pxPosHexX - self.pxGapAdrHex // 2, self.height()),self.addressAreaColor)
+                painter.setPen(Qt.gray)
+                addrLinePos = self.pxPosHexX - self.pxGapAdrHex // 2
+                painter.drawLine(addrLinePos, event.rect().top(), addrLinePos, event.rect().bottom())
 
             if self.asciiArea:
                 linePos = self.pxPosAsciiX - (self.pxGapHexAscii // 2)
@@ -379,8 +384,9 @@ class QHexEdit(QAbstractScrollArea):
             painter.setPen(self.viewport().palette().color(QPalette.WindowText))
             if self.addressArea:
                 pxPosY = pxPosStartY
-                for row in range(self.dataShown.size() // self.bytesPerLine):
-                    address = "{0:0>8}".format(self.bPosFirst + row * self.bytesPerLine + self.addressOffset)
+                for row in range(len(self.dataShown) // self.bytesPerLine):
+                    addrTemplate = self.getAddrTemplate(self.chunks.size)
+                    address = addrTemplate.format(self.bPosFirst + row * self.bytesPerLine + self.addressOffset)
                     painter.drawText(self.pxPosAdrX - pxOffsetX, pxPosY, address)
                     pxPosY += self.pxCharHeight
             colStandard = QPen(self.viewport().palette().color(QPalette.WindowText))
@@ -391,15 +397,16 @@ class QHexEdit(QAbstractScrollArea):
                 pxPosAsciiX = self.pxPosAsciiX - pxOffsetX
                 bPosLine = row * self.bytesPerLine
                 colIdx = 0
-                while (bPosLine + colIdx) < self.dataShown.size() and colIdx < self.bytesPerLine:
+                while (bPosLine + colIdx) < len(self.dataShown) and colIdx < self.bytesPerLine:
                     c = self.viewport().palette().color(QPalette.Base)
                     painter.setPen(colStandard)
                     posBa = self.bPosFirst + bPosLine + colIdx
                     if self.getSelectionBegin() <= posBa < self.getSelectionEnd():
                         c = self.brushSelection.color()
+                        #print(c.name())
                         painter.setPen(self.penSelection)
                     elif self.highlighting:
-                        if self.markedShown.at(posBa - self.bPosFirst):
+                        if self.markedShown[posBa - self.bPosFirst]:
                             c = self.brushHighlighted.color()
                             painter.setPen(self.penHighlighted)
                     r = QRect()
@@ -409,18 +416,21 @@ class QHexEdit(QAbstractScrollArea):
                     else:
                         r.setRect(pxPosX - self.pxCharWidth, pxPosY - self.pxCharHeight + self.pxSelectionSub,
                                   3 * self.pxCharWidth, self.pxCharHeight)
-                    # painter.fillRect(r, c)
-                    hex = self.hexDataShow.mid((bPosLine + colIdx) * 2, 2)
-                    painter.drawText(pxPosX, pxPosY,
-                                     bytes(hex.toUpper()).decode() if self.hexCaps else bytes(hex).decode())
+                    #print(c.name())
+                    painter.fillRect(r, c) # uncomment!
+                    hex = self.hexDataShow[(bPosLine + colIdx) * 2:(bPosLine + colIdx) * 2 + 2]
+                    painter.drawText(pxPosX, pxPosY, hex.upper() if self.hexCaps else hex)
                     pxPosX += 3 * self.pxCharWidth
                     if self.asciiArea:
-                        ch = bytes(self.dataShown.at(bPosLine + colIdx)).decode()
-                        if ch < ' ' or ch > '~':
-                            ch = '.'
-                        r.setRect(pxPosAsciiX, pxPosX - self.pxCharHeight + self.pxSelectionSub, self.pxCharWidth,
+                        # QByteArray.at(i) Returns the byte at index position i in the byte array.
+                        # ch = bytes(self.dataShown.at(bPosLine + colIdx)).decode(encoding='ascii', errors='ignore')
+                        # if ch < ' ' or ch > '~':
+                        #     ch = '.'
+                        ch = self.bytesToStr(self.dataShown[bPosLine+colIdx:bPosLine+colIdx+1])
+                        r.setRect(pxPosAsciiX, pxPosY - self.pxCharHeight + self.pxSelectionSub, self.pxCharWidth,
                                   self.pxCharHeight)
-                        # painter.fillRect(r, c)
+                        # print(f'{c = }')
+                        painter.fillRect(r, c) # uncomment!
                         painter.drawText(pxPosAsciiX, pxPosY, ch)
                         pxPosAsciiX += self.pxCharWidth
                     colIdx += 1
@@ -429,9 +439,11 @@ class QHexEdit(QAbstractScrollArea):
             painter.setPen(self.viewport().palette().color(QPalette.WindowText))
 
         # _cursorPosition counts in 2, _bPosFirst counts in 1
-        hexPositionInShowData = self.absoluteCursorPosition - 2 * self.bPosFirst
+        #hexPositionInShowData = self.absoluteCursorPosition - 2 * self.bPosFirst
+        hexPositionInShowData = self.cursorPosition - 2 * self.bPosFirst
+        #print(f'{hexPositionInShowData = }')
 
-        if 0 <= hexPositionInShowData < self.hexDataShow.size():
+        if 0 <= hexPositionInShowData < len(self.hexDataShow):
             if self.readOnly:
                 color = self.viewport().palette().dark().color()
                 painter.fillRect(
@@ -442,15 +454,18 @@ class QHexEdit(QAbstractScrollArea):
 
             if self.editAreaIsAscii:
                 asciiPositionInShowData = hexPositionInShowData // 2
-                ch = self.dataShown.at(asciiPositionInShowData)
-                if ch < ' ' or ch > '~':
-                    ch = '.'
+                #print(self.dataShown.at(asciiPositionInShowData))
+                # QByteArray.at(i) Returns the byte at index position i in the byte array.
+                # ch = bytes(self.dataShown.at(asciiPositionInShowData)).decode(encoding='ascii', errors='ignore')
+                # if ch < ' ' or ch > '~':
+                #     ch = '.'
+                ch = self.bytesToStr(self.dataShown[asciiPositionInShowData:asciiPositionInShowData+1])
                 painter.drawText(self.pxCursorX - pxOffsetX, self.pxCursorY, ch)
             else:
-                string = self.hexDataShow.mid(hexPositionInShowData,
-                                              1).toUpper() if self.hexCaps else self.hexDataShow.mid(
-                    hexPositionInShowData, 1)
-                painter.drawText(self.pxCursorX - pxOffsetX, self.pxCursorY, bytes(string).decode())
+                string = self.hexDataShow[hexPositionInShowData:hexPositionInShowData+1].upper() \
+                    if self.hexCaps else self.hexDataShow[hexPositionInShowData:hexPositionInShowData+1]
+                #print('paintEvent hex', f'{ string = }')
+                painter.drawText(self.pxCursorX - pxOffsetX, self.pxCursorY, string)
         # emit event, if size has changed
         if self.lastEventSize != self.chunks.size:
             self.lastEventSize = self.chunks.size
@@ -526,7 +541,7 @@ class QHexEdit(QAbstractScrollArea):
         if self.bPosLast >= self.chunks.size:
             self.bPosLast = self.chunks.size - 1
         self.readBuffers()
-        self.setCursorPosition(self.absoluteCursorPosition)
+        self.setCursorPosition(self.cursorPosition)
 
     # noinspection PyUnresolvedReferences
     def dataChangedPrivate(self) -> None:
@@ -541,22 +556,26 @@ class QHexEdit(QAbstractScrollArea):
     def readBuffers(self) -> None:
         self.dataShown = self.chunks.data(self.bPosFirst, self.bPosLast - self.bPosFirst + self.bytesPerLine + 1,
                                           self.markedShown)
-        self.hexDataShow = QByteArray(self.dataShown.toHex())
+        self.hexDataShow = self.dataShown.hex()
 
-    def toReadable(self, array: QByteArray) -> str:
+    def toReadable(self, array: bytearray) -> str:
         result = str()
-        for i in range(array.size(), 16):
-            addString = str(self.addressOffset + i)
-            hexString = str()
+        addrTemplate = self.getAddrTemplate(len(array))
+        for i in range(0, len(array), 16):
+            addString = addrTemplate.format(self.addressOffset + i)
             ascString = str()
+            hexline = array[i:i+16].hex()
+            hexString = ' '.join([hexline[i:i+2] for i in range(0, len(hexline), 2)] + ['  ']*(16 - len(hexline) // 2))
+            ascString = self.bytesToStr(array[i:i+16])
             for j in range(16):
-                if i + j < array.size():
-                    hexString += " " + array.mid(i + j, 1).toHex()
-                    character = int(array[i + j])
-                    if character < 0x20 or character > 0x7E:
-                        character = '.'
-                    ascString += str(character)
-            result += addString + ' ' + hexString + ' ' + ascString + '\n'
+                if i + j < len(array):
+                    pass
+                    #hexString += " " + array[i+j:i+j+1].hex()
+                    #ascString += self.bytesToStr(array[i+j:i+j+1])
+                else:
+                    pass
+                    #hexString += "   " #padding in the last line
+            result += addString + '  ' + hexString + '  ' + ascString + '\n'
         return result
 
     def updateCursor(self):
@@ -565,3 +584,22 @@ class QHexEdit(QAbstractScrollArea):
         else:
             self.blink = True
         self.viewport().update(self.cursorRect)
+
+    def byteToStr(self, b: bytes) -> str:
+        ch = b.decode(encoding='ascii', errors='ignore')
+        return '.' if ch < ' ' or ch > '~' else ch
+
+    def bytesToStr(self, b: bytes) -> str:
+        res = ''
+        for i in range(len(b)):
+            ch = b[i:i+1].decode(encoding='ascii', errors='ignore')
+            res += '.' if ch < ' ' or ch > '~' else ch
+        return res
+
+    def getAddrTemplate(self, size: int, base: int = 10) -> str:
+        if base == 10:
+            return "{0:0>4}" if size < 10000 else "{0:0>8}"
+        elif base == 8:
+            return "{0:0>4o}" if size < 0o10000 else "{0:0>8o}"
+        else:
+            return "{0:0>4x}" if size < 0x10000 else "{0:0>8x}"
