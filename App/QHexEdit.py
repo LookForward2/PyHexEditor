@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QWidget, QAbstractScrollArea
+from PyQt5.QtWidgets import QWidget, QAbstractScrollArea, QApplication
 from PyQt5.QtGui import QColor, QFont, QResizeEvent, QPaintEvent, QMouseEvent, QKeyEvent, QPainter, QPalette, QPen, \
     QBrush, QKeySequence
 from PyQt5.QtCore import QByteArray, QIODevice, QPoint, QRect, Qt, QTimer
@@ -87,7 +87,7 @@ class QHexEdit(QAbstractScrollArea):
         new data.
         """
 
-        self.highlighting = False
+        self.highlighting = True
         """
         Switch the highlighting feature on or of: true (show it), false (hide it).
         """
@@ -206,6 +206,11 @@ class QHexEdit(QAbstractScrollArea):
         self.brushHighlighted = QBrush()
 
         self.highlightingColor = QColor(0xff, 0xff, 0x99, 0xff)
+        self.brushHighlighted.setColor(self.highlightingColor)
+        self.selectionColor = QColor(0x99, 0xff, 0x99, 0xff)
+        #self.brushSelection.setColor(Qt.green)
+        self.brushSelection.setColor(self.selectionColor)
+
         """
         Property highlighting color sets (setHighlightingColor()) the background
         color of highlighted text areas. You can also read the color
@@ -245,13 +250,23 @@ class QHexEdit(QAbstractScrollArea):
         self.viewport().update()
 
     def setAddressOffset(self, addressOffset: int) -> None:
-        pass
+        self.addressOffset = addressOffset
+        self.adjust()
+        self.setCursorPosition(self.cursorPosition)
+        self.viewport().update()
 
     def setAddressWidth(self, width: int) -> None:
-        pass
+        self.adjust()
+        self.setCursorPosition(self.cursorPosition)
+        self.viewport().update()
 
     def setAsciiArea(self, asciiArea: bool) -> None:
-        pass
+        if not self.asciiArea:
+            self.editAreaIsAscii = False
+        self.asciiArea = asciiArea
+        self.adjust()
+        self.setCursorPosition(self.cursorPosition)
+        self.viewport().update()
 
     def setBytesPerLine(self, count: int) -> None:
         self.bytesPerLine = count
@@ -261,23 +276,54 @@ class QHexEdit(QAbstractScrollArea):
         self.viewport().update()
 
     def setCursorPosition(self, position: int) -> None:
-        pass
+        # 1. delete old cursor
+        self.blink = False
+        self.viewport().update()
 
-    def getCursorPositionAt(self, position: QPoint) -> int:
+        # 2. Check, if cursor in range?
+        #print(f'{position = }, {self.chunks.size = }')
+        if position > (self.chunks.size * 2 - 1):
+            position = self.chunks.size * 2 - (1 if self.overwriteMode else 0)
+        
+        if position < 0:
+            position = 0
+
+        # 3. Calc new position of cursor
+        self.bPosCurrent = position // 2
+        self.pxCursorY = ((position // 2 - self.bPosFirst) // self.bytesPerLine + 1) * self.pxCharHeight
+        x = position % (2 * self.bytesPerLine)
+        if self.editAreaIsAscii:
+            self.pxCursorX = x // 2 * self.pxCharWidth + self.pxPosAsciiX
+            self.cursorPosition = (position >> 1) << 1 # & 0xFFFFFFFFFFFFFFFE
+        else:
+            self.pxCursorX = (((x // 2) * 3) + (x % 2)) * self.pxCharWidth + self.pxPosHexX
+            self.cursorPosition = position
+
+        if self.overwriteMode:
+            self.cursorRect = QRect(self.pxCursorX - self.horizontalScrollBar().value(), self.pxCursorY + self.pxCursorWidth, self.pxCharWidth, self.pxCursorWidth)
+        else:
+            self.cursorRect = QRect(self.pxCursorX - self.horizontalScrollBar().value(), self.pxCursorY - self.pxCharHeight + 4, self.pxCursorWidth, self.pxCharHeight)
+
+        # 4. Immediately draw new cursor
+        self.blink = True
+        self.viewport().update(self.cursorRect)
+        self.currentAddressChanged.emit(self.bPosCurrent)
+
+    def getCursorPosition(self, position: QPoint) -> int:
         # Calc cursor position depending on a graphical position
         posX = position.x() + self.horizontalScrollBar().value()
         posY = position.y() - 3
         if self.pxPosHexX <= posX < (self.pxPosHexX + (1 + self.hexCharInLine) * self.pxCharWidth):
             self.editAreaIsAscii = False
-            x = (posX - self.pxPosHexX) / self.pxCharWidth
-            x = (x / 3) * 2 + x % 3
-            y = (posY / self.pxCharHeight) * 2 * self.bytesPerLine
+            x = (posX - self.pxPosHexX) // self.pxCharWidth
+            x = (x // 3) * 2 + x % 3
+            y = (posY // self.pxCharHeight) * 2 * self.bytesPerLine
             return self.bPosFirst * 2 + x + y
         elif self.asciiArea and self.pxPosAsciiX <= posX < (
                 self.pxPosAsciiX + (1 + self.bytesPerLine) * self.pxCharWidth):
             self.editAreaIsAscii = True
-            x = 2 * (posX - self.pxPosAsciiX) / self.pxCharWidth
-            y = (posY / self.pxCharHeight) * 2 * self.bytesPerLine
+            x = 2 * (posX - self.pxPosAsciiX) // self.pxCharWidth
+            y = (posY // self.pxCharHeight) * 2 * self.bytesPerLine
             return self.bPosFirst * 2 + x + y
         else:
             return -1
@@ -291,7 +337,7 @@ class QHexEdit(QAbstractScrollArea):
         self.viewport().update()
         return status
 
-    def dataAt(self, position: int, count: int) -> QByteArray:
+    def dataAt(self, position: int, count: int) -> bytearray:
         return self.chunks.data(position, count)
 
     def write(self, device: QIODevice, position: int, count: int) -> bool:
@@ -303,25 +349,34 @@ class QHexEdit(QAbstractScrollArea):
     def removeChar(self, index: int, length: int) -> None:
         pass
 
-    def replaceChar(self, index: int, char: str) -> None:
+    def replaceChar(self, index: int, char: bytes) -> None:
+        self.undoStack.overwriteChar(index, char[0:1]) # assert only 1 byte
+        self.refresh()
+
+    def insertAtArray(self, position: int, array: bytes) -> None:
         pass
 
-    def insertAtArray(self, position: int, array: QByteArray) -> None:
-        pass
-
-    def replaceAtArray(self, position: int, length: int, array: QByteArray) -> None:
+    def replaceAtArray(self, position: int, length: int, array: bytes) -> None:
         pass
 
     def ensureVisible(self) -> None:
-        pass
+        if self.cursorPosition <= self.bPosFirst * 2:
+            self.verticalScrollBar().setValue(int(self.cursorPosition / 2 / self.bytesPerLine))
+        if self.cursorPosition > self.bPosFirst + (self.rowsShown - 1) * self.bytesPerLine * 2:
+            self.verticalScrollBar().setValue(int(self.cursorPosition / 2 / self.bytesPerLine) - self.rowsShown + 1)
+        if self.pxCursorX <= self.horizontalScrollBar().value():
+            self.horizontalScrollBar().setValue(self.pxCursorX)
+        if self.pxCursorX + self.pxCharWidth > self.horizontalScrollBar().value() + self.viewport().width():
+            self.horizontalScrollBar().setValue(self.pxCursorX + self.pxCharWidth - self.viewport().width())
+        self.viewport().update()
 
-    def indexOf(self, array: QByteArray, _from: int) -> int:
+    def indexOf(self, array: bytes, _from: int) -> int:
         pass
 
     def isModified(self) -> bool:
         return self.modified
 
-    def lastIndexOf(self, array: QByteArray, _from: int) -> int:
+    def lastIndexOf(self, array: bytes, _from: int) -> int:
         pass
 
     def redo(self) -> None:
@@ -357,10 +412,23 @@ class QHexEdit(QAbstractScrollArea):
         pass
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
-        pass
+        self.blink = False
+        self.viewport().update()
+        actPos = self.getCursorPosition(event.pos())
+        if actPos >= 0:
+            self.setCursorPosition(actPos)
+            self.setSelection(actPos)
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
-        pass
+        self.blink = False
+        self.viewport().update()
+        cPos = self.getCursorPosition(event.pos())
+        #ePos = event.pos().x(), event.pos().y()
+        #print(f'{ePos = } , {cPos = }')
+        if cPos >= 0:
+            if event.button() != Qt.RightButton:
+                self.resetSelection(cPos)
+            self.setCursorPosition(cPos)
 
     def paintEvent(self, event: QPaintEvent) -> None:
         #print('paintEvent start')
@@ -422,10 +490,6 @@ class QHexEdit(QAbstractScrollArea):
                     painter.drawText(pxPosX, pxPosY, hex.upper() if self.hexCaps else hex)
                     pxPosX += 3 * self.pxCharWidth
                     if self.asciiArea:
-                        # QByteArray.at(i) Returns the byte at index position i in the byte array.
-                        # ch = bytes(self.dataShown.at(bPosLine + colIdx)).decode(encoding='ascii', errors='ignore')
-                        # if ch < ' ' or ch > '~':
-                        #     ch = '.'
                         ch = self.bytesToStr(self.dataShown[bPosLine+colIdx:bPosLine+colIdx+1])
                         r.setRect(pxPosAsciiX, pxPosY - self.pxCharHeight + self.pxSelectionSub, self.pxCharWidth,
                                   self.pxCharHeight)
@@ -439,7 +503,6 @@ class QHexEdit(QAbstractScrollArea):
             painter.setPen(self.viewport().palette().color(QPalette.WindowText))
 
         # _cursorPosition counts in 2, _bPosFirst counts in 1
-        #hexPositionInShowData = self.absoluteCursorPosition - 2 * self.bPosFirst
         hexPositionInShowData = self.cursorPosition - 2 * self.bPosFirst
         #print(f'{hexPositionInShowData = }')
 
@@ -454,11 +517,6 @@ class QHexEdit(QAbstractScrollArea):
 
             if self.editAreaIsAscii:
                 asciiPositionInShowData = hexPositionInShowData // 2
-                #print(self.dataShown.at(asciiPositionInShowData))
-                # QByteArray.at(i) Returns the byte at index position i in the byte array.
-                # ch = bytes(self.dataShown.at(asciiPositionInShowData)).decode(encoding='ascii', errors='ignore')
-                # if ch < ' ' or ch > '~':
-                #     ch = '.'
                 ch = self.bytesToStr(self.dataShown[asciiPositionInShowData:asciiPositionInShowData+1])
                 painter.drawText(self.pxCursorX - pxOffsetX, self.pxCursorY, ch)
             else:
@@ -496,14 +554,26 @@ class QHexEdit(QAbstractScrollArea):
         else:
             super(QHexEdit, self).focusNextPrevChild(nextChild)
 
-    def resetSelection(self):
-        pass
+    def initSelection(self):
+        self.bSelectionBegin = self.bSelectionInit
+        self.bSelectionEnd = self.bSelectionInit
 
-    def resetSelectionAtPosition(self, position: int) -> None:
-        pass
+    def resetSelection(self, pos: int) -> None:
+        pos = pos // 2
+        if pos < 0: pos = 0
+        if pos > self.chunks.size: pos = self.chunks.size
+        self.bSelectionInit = pos
+        self.bSelectionBegin = pos
+        self.bSelectionEnd = pos
 
-    def setSelection(self, position: int) -> None:
-        pass
+    def setSelection(self, pos: int) -> None:
+        pos = pos // 2
+        if pos < 0: pos = 0
+        if pos > self.chunks.size: pos = self.chunks.size
+        if pos >= self.bSelectionInit:
+            self.bSelectionBegin, self.bSelectionEnd = self.bSelectionInit, pos
+        else:
+            self.bSelectionBegin, self.bSelectionEnd = pos, self.bSelectionInit
 
     def getSelectionBegin(self) -> int:
         return self.bSelectionBegin
@@ -567,14 +637,6 @@ class QHexEdit(QAbstractScrollArea):
             hexline = array[i:i+16].hex()
             hexString = ' '.join([hexline[i:i+2] for i in range(0, len(hexline), 2)] + ['  ']*(16 - len(hexline) // 2))
             ascString = self.bytesToStr(array[i:i+16])
-            for j in range(16):
-                if i + j < len(array):
-                    pass
-                    #hexString += " " + array[i+j:i+j+1].hex()
-                    #ascString += self.bytesToStr(array[i+j:i+j+1])
-                else:
-                    pass
-                    #hexString += "   " #padding in the last line
             result += addString + '  ' + hexString + '  ' + ascString + '\n'
         return result
 

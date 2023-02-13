@@ -44,7 +44,7 @@ class Chunks(QObject):
         chunkIdx = 0
         chunk = Chunk()
         buffer = bytearray()
-        if highlighted:
+        if highlighted is not None:
             highlighted.clear()
         if position >= self.size:
             return buffer
@@ -79,7 +79,7 @@ class Chunks(QObject):
                         buffer += chunk.data[chunkOfs:chunkOfs+count]
                         maxSize -= count
                         position += count
-                        if highlighted:
+                        if highlighted is not None:
                             highlighted += chunk.dataChanged[chunkOfs:chunkOfs+count]
             if maxSize > 0 and position < chunk.absPos:
                 byteCount = 0
@@ -91,8 +91,8 @@ class Chunks(QObject):
                 self.device.seek(position + delta)
                 readBuffer = self.device.read(byteCount)
                 buffer += readBuffer
-                if highlighted:
-                    highlighted += bytearray(len(readBuffer), NORMAL) # b'x00' filled bytearray
+                if highlighted is not None:
+                    highlighted += bytearray(NORMAL*len(readBuffer)) # b'\x00' filled bytearray
                 position += len(readBuffer)
         self.device.close()
         return buffer
