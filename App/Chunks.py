@@ -143,8 +143,10 @@ class Chunks(QObject):
 
     def insert(self, position: int, character: bytes) -> bool:
         if 0 <= position <= self.size:
-            if position == self.size:
+            if position == self.size and self.size == 0:
                 chunkIdx = self.getChunkIndex(position) # to insert before the last byte ??? position-1
+            elif position == self.size:
+                chunkIdx = self.getChunkIndex(position-1)
             else:
                 chunkIdx = self.getChunkIndex(position)
             posInBa = position - self.chunks[chunkIdx].absPos
@@ -202,6 +204,8 @@ class Chunks(QObject):
 
         for i in range(len(self.chunks)):
             chunk = self.chunks[i]
+            # when "undo" and then "redo" the only byte the loop makes a new chunk every "undo-redo"
+            if len(chunk.data) == 0 and len(self.chunks) == 1 and absPos == 0: return 0
             if chunk.absPos <= absPos < chunk.absPos + len(chunk.data):
                 foundIdx = i
                 break
