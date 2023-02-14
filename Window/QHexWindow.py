@@ -12,7 +12,7 @@ class QHexWindow(QMainWindow):
         self.appName = name
 
         self.currentFile = str()
-        self.isUntitled = False
+        self.isUntitled = True
 
         self.hexEdit = QHexEdit(self)
 
@@ -21,6 +21,8 @@ class QHexWindow(QMainWindow):
         self.editMenu = QMenu()
         self.helpMenu = QMenu()
         self.labelSize = QLabel()
+        self.labelAddress = QLabel()
+        self.labelOverwriteMode = QLabel()
         self.fileToolBar = QToolBar()
         self.editToolBar = QToolBar()
         self.undoAction = QAction()
@@ -68,6 +70,8 @@ class QHexWindow(QMainWindow):
         QMessageBox.aboutQt(self, self.appName)
 
     def dataChanged(self):
+        if self.isUntitled:
+            self.setWindowFilePath(self.appName)
         self.setWindowModified(self.hexEdit.isModified())
 
     def open(self):
@@ -117,11 +121,11 @@ class QHexWindow(QMainWindow):
             self.currentFile.rsplit('.')[0] + defSuffix, filter=filters, initialFilter=defFilter)
         return self.saveReadableFile(filename)
 
-    def setAddress(self):
-        pass
+    def setAddress(self, addr):
+        self.labelAddress.setText(str(addr))
 
     def setOverwriteMode(self):
-        pass
+        self.labelOverwriteMode.setText()
 
     def setSize(self, size):
         self.labelSize.setText(str(size))
@@ -230,9 +234,9 @@ class QHexWindow(QMainWindow):
 
     def createStatusBar(self):
         self.statusBar().addPermanentWidget(QLabel('Address:'))
-        labelAddress = QLabel()
-        labelAddress.setMinimumWidth(70)
-        self.statusBar().addPermanentWidget(labelAddress)
+        self.labelAddress.setMinimumWidth(70)
+        self.statusBar().addPermanentWidget(self.labelAddress)
+        self.hexEdit.currentAddressChanged.connect(self.setAddress)
 
         self.statusBar().addPermanentWidget(QLabel('Size:'))
         self.labelSize.setMinimumWidth(70)
@@ -240,9 +244,8 @@ class QHexWindow(QMainWindow):
         self.hexEdit.currentSizeChanged.connect(self.setSize)
 
         self.statusBar().addPermanentWidget(QLabel('Mode:'))
-        labelOverwriteMode = QLabel()
-        labelOverwriteMode.setMinimumWidth(70)
-        self.statusBar().addPermanentWidget(labelOverwriteMode)
+        self.labelOverwriteMode.setMinimumWidth(70)
+        self.statusBar().addPermanentWidget(self.labelOverwriteMode)
 
         self.statusBar().showMessage('Ready', 2000)
 
@@ -305,9 +308,9 @@ class QHexWindow(QMainWindow):
 
     def setCurrentFile(self, filename: str):
         self.currentFile = QFileInfo(filename).canonicalFilePath()
-        isUntitled = len(self.currentFile) == 0
+        self.isUntitled = (len(self.currentFile) == 0)
         self.setWindowModified(False)
-        if isUntitled:
+        if self.isUntitled:
             self.setWindowFilePath(self.appName)
         else:
             self.setWindowFilePath(self.currentFile + " - " + self.appName)
