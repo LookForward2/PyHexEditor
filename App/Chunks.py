@@ -109,14 +109,12 @@ class Chunks(QObject):
         return status
 
     def setDataChanged(self, position: int, dataChanged: bool) -> None:
-        print('Chunks.setDataChanged')
         if 0 <= self.position < self.size:
             chunkIdx = self.getChunkIndex(position)
             posInBa = position - self.chunks[chunkIdx].absPos
             self.chunks[chunkIdx].dataChanged[posInBa] = dataChanged
 
     def dataChanged(self, position: int) -> bool:
-        print('Chunks.dataChanged')
         highlighted = bytearray()
         self.data(position, 1, highlighted)
         return bool(highlighted[0])
@@ -146,7 +144,7 @@ class Chunks(QObject):
     def insert(self, position: int, character: bytes) -> bool:
         if 0 <= position <= self.size:
             if position == self.size:
-                chunkIdx = self.getChunkIndex(position - 1) # to insert before the last byte
+                chunkIdx = self.getChunkIndex(position) # to insert before the last byte ??? position-1
             else:
                 chunkIdx = self.getChunkIndex(position)
             posInBa = position - self.chunks[chunkIdx].absPos
@@ -161,7 +159,6 @@ class Chunks(QObject):
             return False
 
     def overwrite(self, position: int, character: bytes) -> bool:
-        print('Chunks.overwrite')
         if 0 <= position < self.size:
             chunkIdx = self.getChunkIndex(position)
             posInBa = position - self.chunks[chunkIdx].absPos
@@ -199,7 +196,6 @@ class Chunks(QObject):
         pass
 
     def getChunkIndex(self, absPos: int):
-        print('Chunks.getChunkIndex')
         foundIdx = -1
         insertIdx = 0
         ioDelta = 0

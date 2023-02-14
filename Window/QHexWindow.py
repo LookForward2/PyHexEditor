@@ -47,6 +47,7 @@ class QHexWindow(QMainWindow):
 
     def closeEvent(self, event: QCloseEvent) -> None:
         self.hexEdit.undoStack.clear()
+        # if self.hexEdit.clipboard: self.hexEdit.clipboard.clear()
         self.writeSettings()
 
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
@@ -263,6 +264,7 @@ class QHexWindow(QMainWindow):
             QMessageBox.warning(self, "Hex",
                                 f"Cannot read the file {filename}: {self.file.errorString()}.")
         self.setCurrentFile(filename)
+        self.hexEdit.undoStack.clear()
         self.statusBar().showMessage('File Loaded', 2000)
 
     def readSettings(self):

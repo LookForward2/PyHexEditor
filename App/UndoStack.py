@@ -19,9 +19,7 @@ class CharCommand(QUndoCommand):
         self.newChar = newChar
         self.oldChar = bytes()
 
-    def mergeWith(self, command):
-    #def mergeWith(self, command: QUndoCommand):
-    #    nextCommand = CharCommand(command)
+    def mergeWith(self, command): # command: CharCommand()
         nextCommand = command
         result = False
         if self.cmd != CCmd.removeAt:
@@ -35,8 +33,6 @@ class CharCommand(QUndoCommand):
         if self.cmd == CCmd.insert:
             self.chunks.insert(self.charPos, self.newChar)
         if self.cmd == CCmd.overwrite:
-            print(self.chunks.chunks)
-            print(f'{self.charPos = }')
             self.oldChar = self.chunks.at(self.charPos)
             self.wasChanged = self.chunks.dataChanged(self.charPos)
             self.chunks.overwrite(self.charPos, self.newChar)
@@ -63,7 +59,7 @@ class UndoStack(QUndoStack):
         super().__init__()
         self.chunks = chunks
         self.parent = parent
-        self.setUndoLimit(100)
+        self.setUndoLimit(1000)
 
     def removeAt(self, pos: int, length: int):
         if 0 <= pos < self.chunks.size:
@@ -78,19 +74,19 @@ class UndoStack(QUndoStack):
                     self.push(cc)
                 self.endMacro()
 
-    def insertChar(self, pos: int, c: bytes):
-        if 0 <= pos <= self.chunks.size:
-            cc = CharCommand(self.chunks, CCmd.insert, pos, c)
-            self.push(cc)
+    # def insertChar(self, pos: int, c: bytes):
+    #     if 0 <= pos <= self.chunks.size:
+    #         cc = CharCommand(self.chunks, CCmd.insert, pos, c)
+    #         self.push(cc)
 
-    def insertArray(self, pos: int, ba: bytes):
-        if 0 <= pos <= self.chunks.size:
-            txt = "Insert {} chars".format(len(ba))
-            self.beginMacro(txt)
-            for i in range(len(ba)):
-                cc = CharCommand(self.chunks, CCmd.insert, pos + i, ba[i:i+1])
-                self.push(cc)
-            self.endMacro()
+    # def insertArray(self, pos: int, ba: bytes):
+    #     if 0 <= pos <= self.chunks.size:
+    #         txt = "Insert {} chars".format(len(ba))
+    #         self.beginMacro(txt)
+    #         for i in range(len(ba)):
+    #             cc = CharCommand(self.chunks, CCmd.insert, pos + i, ba[i:i+1])
+    #             self.push(cc)
+    #         self.endMacro()
 
     def insert(self, pos: int, ba: bytes):
         if 0 <= pos <= self.chunks.size:
@@ -105,26 +101,22 @@ class UndoStack(QUndoStack):
                     self.push(cc)
                 self.endMacro()                
 
-    def overwriteChar(self, pos: int, c: bytes): # len(c) = 1
-        print('Undostack:overwriteChar', f'{pos = }', f'{c.hex() = }')
-        print(f'{self.chunks.chunks = }')
-        if 0 <= pos < self.chunks.size:
-            cc = CharCommand(self.chunks, CCmd.overwrite, pos, c)
-            self.push(cc)
+    # def overwriteChar(self, pos: int, c: bytes): # len(c) = 1
+    #     if 0 <= pos < self.chunks.size:
+    #         cc = CharCommand(self.chunks, CCmd.overwrite, pos, c)
+    #         self.push(cc)
 
-    def overwriteArray(self, pos: int, length: int, ba: bytes): # does length really need ? length != len(ba) ?
-        if 0 <= pos < self.chunks.size:
-            txt = f"Overwrite {length} chars"
-            self.beginMacro(txt)
-            self.removeAt(pos, length)
-            self.insertArray(pos, ba)
-            self.endMacro()
+    # def overwriteArray(self, pos: int, length: int, ba: bytes): # does length really need ? length != len(ba) ?
+    #     if 0 <= pos < self.chunks.size:
+    #         txt = f"Overwrite {length} chars"
+    #         self.beginMacro(txt)
+    #         self.removeAt(pos, length)
+    #         self.insertArray(pos, ba)
+    #         self.endMacro()
 
     def overwrite(self, pos: int, ba: bytes): # no length argument - len(ba) instead
         if 0 <= pos < self.chunks.size:
             if len(ba) == 1:
-                print('Undostack:overwriteChar', f'{pos = }', f'{ba.hex() = }')
-                print(f'{self.chunks.chunks = }')
                 cc = CharCommand(self.chunks, CCmd.overwrite, pos, ba)
                 self.push(cc)
             elif len(ba) > 1:
