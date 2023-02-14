@@ -237,6 +237,8 @@ class QHexEdit(QAbstractScrollArea):
         self.verticalScrollBar().valueChanged.connect(self.adjust)
         self.horizontalScrollBar().valueChanged.connect(self.adjust)
 
+        self.undoStack.indexChanged.connect(self.dataChangedPrivate)
+
         self.setFont(QFont("Monospace", 12))
 
     def setAddressArea(self, addressArea: bool) -> None:
@@ -343,21 +345,23 @@ class QHexEdit(QAbstractScrollArea):
     def write(self, device: QIODevice, position: int, count: int) -> bool:
         return self.chunks.write(device, position, count)
 
-    def insertChar(self, index: int, character: str) -> None:
-        pass
+    def insert(self, index: int, array: bytes) -> None:
+        self.undoStack.insert(index, array)
 
     def removeChar(self, index: int, length: int) -> None:
-        pass
+        self.undoStack.removeAt(index, length)
 
     def replaceChar(self, index: int, char: bytes) -> None:
-        self.undoStack.overwriteChar(index, char[0:1]) # assert only 1 byte
+        self.undoStack.overwrite(index, char[0:1]) # assert only 1 byte
         self.refresh()
 
-    def insertAtArray(self, position: int, array: bytes) -> None:
-        pass
+    def replace(self, index: int, array: bytes) -> None: # united both replaceChar and replaceAtArray
+        self.undoStack.overwrite(index, array)
+        self.refresh()
 
     def replaceAtArray(self, position: int, length: int, array: bytes) -> None:
-        pass
+        self.undoStack.overwrite(position, array)
+        self.refresh()
 
     def ensureVisible(self) -> None:
         if self.cursorPosition <= self.bPosFirst * 2:
@@ -380,7 +384,9 @@ class QHexEdit(QAbstractScrollArea):
         pass
 
     def redo(self) -> None:
-        pass
+        self.undoStack.redo()
+        self.setCursorPosition(self.chunks.getPos() * 1 if self.editAreaIsAscii else 2)
+        self.refresh()
 
     def selectionToReadableString(self) -> str:
         pass
@@ -406,10 +412,282 @@ class QHexEdit(QAbstractScrollArea):
         pass
 
     def undo(self) -> None:
-        pass
+        self.undoStack.undo()
+        self.setCursorPosition(self.chunks.getPos() * 1 if self.editAreaIsAscii else 2)
+        self.refresh()
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
-        pass
+        # Use match/case statment since Python 3.10
+        # Cursor movements
+        if event.matches(QKeySequence.MoveToNextChar):
+            pos = self.cursorPosition + (2 if self.editAreaIsAscii else 1)
+            self.setCursorPosition(pos)
+            self.resetSelection(pos)
+        if event.matches(QKeySequence.MoveToPreviousChar):
+            pos = self.cursorPosition - (2 if self.editAreaIsAscii else 1)
+            self.setCursorPosition(pos)
+            self.resetSelection(pos)
+        if event.matches(QKeySequence.MoveToEndOfLine):
+            pos = self.cursorPosition - (self.cursorPosition % (2 * self.bytesPerLine)) + (2 * self.bytesPerLine) - 1
+            self.setCursorPosition(pos)
+            self.resetSelection(self.cursorPosition)
+        if event.matches(QKeySequence.MoveToStartOfLine):
+            pos = self.cursorPosition - (self.cursorPosition % (2 * self.bytesPerLine))
+            self.setCursorPosition(pos)
+            self.resetSelection(self.cursorPosition)  
+        if event.matches(QKeySequence.MoveToNextLine):
+            pos = self.cursorPosition + (2 * self.bytesPerLine)
+            self.setCursorPosition(pos)
+            self.resetSelection(self.cursorPosition)    
+        if event.matches(QKeySequence.MoveToPreviousLine):
+            pos = self.cursorPosition - (2 * self.bytesPerLine)
+            self.setCursorPosition(pos)
+            self.resetSelection(self.cursorPosition)  
+        if event.matches(QKeySequence.MoveToNextPage):
+            pos = self.cursorPosition + (((self.rowsShown - 1) * 2 * self.bytesPerLine))
+            self.setCursorPosition(pos)
+            self.resetSelection(self.cursorPosition)  
+        if event.matches(QKeySequence.MoveToPreviousPage):
+            pos = self.cursorPosition - (((self.rowsShown - 1) * 2 * self.bytesPerLine))
+            self.setCursorPosition(pos)
+            self.resetSelection(self.cursorPosition)
+        if event.matches(QKeySequence.MoveToEndOfDocument):
+            pos = self.chunks.size * 2
+            self.setCursorPosition(pos)
+            self.resetSelection(self.cursorPosition)    
+        if event.matches(QKeySequence.MoveToStartOfDocument):
+            pos = 0
+            self.setCursorPosition(pos)
+            self.resetSelection(self.cursorPosition)
+
+        # Select commands  
+        if event.matches(QKeySequence.SelectAll):
+            self.resetSelection(0)
+            self.setSelection(2 * self.chunks.size + 1)
+        if event.matches(QKeySequence.SelectNextChar):
+            pos = self.cursorPosition + (2 if self.editAreaIsAscii else 1)
+            self.setCursorPosition(pos)
+            self.setSelection(pos)
+        if event.matches(QKeySequence.SelectPreviousChar):
+            pos = self.cursorPosition - (2 if self.editAreaIsAscii else 1)
+            self.setCursorPosition(pos)
+            self.setSelection(pos)
+        
+        if event.matches(QKeySequence.SelectEndOfLine):
+            pos = self.cursorPosition - (self.cursorPosition % (2 * self.bytesPerLine)) + (2 * self.bytesPerLine) - 1
+            self.setCursorPosition(pos)
+            self.setSelection(pos)
+        if event.matches(QKeySequence.SelectStartOfLine):
+            pos = self.cursorPosition - (self.cursorPosition % (2 * self.bytesPerLine))
+            self.setCursorPosition(pos)
+            self.setSelection(pos) 
+        if event.matches(QKeySequence.SelectNextLine):
+            pos = self.cursorPosition + (2 * self.bytesPerLine)
+            self.setCursorPosition(pos)
+            self.setSelection(pos)  
+        if event.matches(QKeySequence.SelectPreviousLine):
+            pos = self.cursorPosition - (2 * self.bytesPerLine)
+            self.setCursorPosition(pos)
+            self.setSelection(pos) 
+        if event.matches(QKeySequence.SelectNextPage):
+            #pos = self.cursorPosition + (((self.rowsShown - 1) * 2 * self.bytesPerLine))
+            pos = self.cursorPosition + (self.viewport().height() // self.pxCharHeight - 1) * 2 * self.bytesPerLine
+            self.setCursorPosition(pos)
+            self.setSelection(pos)
+        if event.matches(QKeySequence.SelectPreviousPage):
+            #pos = self.cursorPosition - (((self.rowsShown - 1) * 2 * self.bytesPerLine))
+            pos = self.cursorPosition - (self.viewport().height() // self.pxCharHeight - 1) * 2 * self.bytesPerLine
+            self.setCursorPosition(pos)
+            self.setSelection(pos)
+        if event.matches(QKeySequence.SelectEndOfDocument):
+            pos = self.chunks.size * 2
+            self.setCursorPosition(pos)
+            self.setSelection(pos)
+        if event.matches(QKeySequence.SelectStartOfDocument):
+            pos = 0
+            self.setCursorPosition(pos)
+            self.setSelection(pos)
+
+        # Copy
+        if event.matches(QKeySequence.Copy):
+            # ba = bytearray
+            ba = self.chunks.data(self.getSelectionBegin(), self.getSelectionEnd() - self.getSelectionBegin())
+            buf = str()
+            for i in range(0, len(ba), 32): # 32 bytes in a row
+                buf += ba[i:i+32].hex() + '\n'
+            clipboard = QApplication.clipboard()
+            print('copy\n', buf)
+            clipboard.setText(buf)
+
+        # Switch between insert/overwrite mode
+        if event.key() == Qt.Key_Insert and event.modifiers() == Qt.NoModifier:
+            self.overwriteMode = not self.overwriteMode
+            self.overwriteModeChanged.emit(self.overwriteMode)
+            self.setCursorPosition(self.cursorPosition)
+        
+        # Switch from hex to ascii edit
+        if event.key() == Qt.Key_Tab and not self.editAreaIsAscii:
+            self.editAreaIsAscii = True
+            self.setCursorPosition(self.cursorPosition)
+
+        # Switch from ascii to hex edit
+        if event.key() == Qt.Key_Backtab and self.editAreaIsAscii:
+            self.editAreaIsAscii = False
+            self.setCursorPosition(self.cursorPosition)
+
+        # Edit commands will be parced only if NOT ReadOnly
+
+        if self.readOnly:
+            self.refresh()
+            QAbstractScrollArea.keyPressEvent(self, event)
+            return
+        
+        # Cut
+        if event.matches(QKeySequence.Cut):
+            ba = self.chunks.data(self.getSelectionBegin(), self.getSelectionEnd() - self.getSelectionBegin())
+            buf = str()
+            for i in range(0, len(ba), 32):
+                buf += ba[i:i+32].hex() + '\n'
+            clipboard = QApplication.clipboard()
+            print('cut\n', buf)
+            clipboard.setText(buf)
+            if self.overwriteMode:
+                self.replaceAtArray(self.getSelectionBegin(), \
+                    self.getSelectionEnd() - self.getSelectionBegin(), \
+                    bytes(self.getSelectionEnd() - self.getSelectionBegin())) # zero filled bytes
+            else:
+                self.removeChar(self.getSelectionBegin(), self.getSelectionEnd() - self.getSelectionBegin())
+            self.setCursorPosition(2 * self.getSelectionBegin())
+            self.resetSelection(2 * self.getSelectionBegin())
+        
+        # Paste
+        if event.matches(QKeySequence.Paste):
+            print('Paste Key Event')
+            clipboard = QApplication.clipboard()
+            ba = bytes.fromhex(clipboard.text()) # ?
+            print(ba)
+            if self.overwriteMode:
+                ba = ba[0:min(len(ba), self.chunks.size - self.bPosCurrent)]
+                self.replaceAtArray(self.bPosCurrent, len(ba), ba)
+            else:
+                self.insert(self.bPosCurrent, ba)
+            self.setCursorPosition(self.cursorPosition + 2 * len(ba))
+            self.resetSelection(self.getSelectionBegin())
+
+            # Delete char
+        elif event.matches(QKeySequence.Delete):
+            if self.getSelectionBegin() != self.getSelectionEnd():
+                self.bPosCurrent = self.getSelectionBegin()
+                if self.overwriteMode:
+                    ba = bytes(self.getSelectionEnd() - self.getSelectionBegin()) # zero filled bytes
+                    self.replaceAtArray(self.bPosCurrent, len(ba), ba)
+                else:
+                    self.removeChar(self.bPosCurrent, self.getSelectionEnd() - self.getSelectionBegin())
+            else:
+                if self.overwriteMode:
+                    self.replaceChar(self.bPosCurrent, bytes(1)) # zero filled byte
+                else:
+                    self.removeChar(self.bPosCurrent, 1)
+        # Backspace
+        elif event.key() == Qt.Key_Backspace and event.modifiers() == Qt.NoModifier:
+            if self.getSelectionBegin() != self.getSelectionEnd():
+                self.bPosCurrent = self.getSelectionBegin()
+                self.setCursorPosition(2 * self.bPosCurrent)
+                if self.overwriteMode:
+                    ba = bytes(self.getSelectionEnd() - self.getSelectionBegin()) # zero filled byte
+                    self.replaceAtArray(self.bPosCurrent, len(ba), ba)
+                else:
+                    self.remove(self.bPosCurrent, self.getSelectionEnd() - self.getSelectionBegin())
+                self.resetSelection(2 * self.bPosCurrent)
+            else:
+                behindLastByte = False
+                if self.cursorPosition // 2 == self.chunks.size:
+                    behindLastByte = True
+                
+                self.bPosCurrent -= 1
+                if self.overwriteMode:
+                    self.replaceChar(self.bPosCurrent, bytes(1)) # zero filled byte
+                else:
+                    self.removeChar(self.bPosCurrent, 1)
+                
+                if behindLastByte: self.bPosCurrent -= 1
+
+                self.setCursorPosition(2 * self.bPosCurrent)
+                self.resetSelection(2 * self.bPosCurrent)
+
+        # undo
+        elif event.matches(QKeySequence.Undo):
+            self.undo()
+
+        # redo
+        elif event.matches(QKeySequence.Redo):
+            self.redo()
+
+        elif (QApplication.keyboardModifiers() == Qt.NoModifier) or \
+                (QApplication.keyboardModifiers() == Qt.KeypadModifier) or \
+                (QApplication.keyboardModifiers() == Qt.ShiftModifier) or \
+                (QApplication.keyboardModifiers() == (Qt.AltModifier | Qt.ControlModifier)) or \
+                (QApplication.keyboardModifiers() == Qt.GroupSwitchModifier):
+            # hex and ascii input
+            if self.editAreaIsAscii:
+                #key = event.text()[0].toLatin1() #?
+                #key = event.text()[0]
+                key = event.text()
+            else:
+                #key = event.text()[0].toLower().toLatin1() #?
+                #key = event.text()[0].lower()
+                key = event.text().lower()
+            print(f'{key = }')
+            print(f'{self.overwriteMode = }')
+            if (('0' <= key <= '9' or 'a' <= key <= 'f') and not self.editAreaIsAscii) or \
+                    (key >= ' ' and self.editAreaIsAscii):
+                if self.getSelectionBegin() != self.getSelectionEnd():
+                    if self.overwriteMode:
+                        length = self.getSelectionEnd() - self.getSelectionBegin()
+                        self.replaceAtArray(self.getSelectionBegin(), length, bytes(length)) # zero filled bytes
+                    else:
+                        self.removeChar(self.getSelectionBegin(), self.getSelectionEnd - self.getSelectionBegin())
+                        self.bPosCurrent = self.getSelectionBegin()
+                    self.setCursorPosition(2 * self.bPosCurrent)
+                    self.resetSelection(2 * self.bPosCurrent)
+
+                # If insert mode, then insert a byte
+                if not self.overwriteMode:
+                    if self.cursorPosition % 2 == 0:
+                        self.insert(self.bPosCurrent, bytes(1)) # zero filled byte
+                
+                # Change content
+                if self.chunks.size > 0:
+                    print(f'{self.chunks.size = }')
+                    print('self.chunks.chunks ', self.chunks.chunks)
+                    ch = bytes(key, encoding='ascii')
+                    if not self.editAreaIsAscii:
+                        print('keyevent self.chunks.chunks = ', self.chunks.chunks)
+                        hexVal = self.chunks.data(self.bPosCurrent, 1).hex() # hexVal: str, length = 2
+                        if self.cursorPosition % 2 == 0:
+                            print(f'{hexVal = }')
+                            print(f'{key = }')
+                            # 'QByteArray' object does not support item assignment
+                            # hexVal[0] = ord(key)
+                            hexVal = key + hexVal[1] # replace [7:4] bits of byte - even position 
+                            print(f'{hexVal = }')
+                        else:
+                            hexVal = hexVal[0] + key # replace [3:0] bits of byte - odd position
+                            print(f'{hexVal = }')
+                        ch = bytes.fromhex(hexVal)
+                    print(f'char {ch}')
+                    self.replaceChar(self.bPosCurrent, ch)
+                    if self.editAreaIsAscii:
+                        self.setCursorPosition(self.cursorPosition + 2)
+                    else:
+                        self.setCursorPosition(self.cursorPosition + 1)
+                    self.resetSelection(self.cursorPosition)
+ 
+
+        self.refresh()
+        QAbstractScrollArea.keyPressEvent(self, event)
+        #end of keyPressEvent
+        #pass
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
         self.blink = False
@@ -471,7 +749,6 @@ class QHexEdit(QAbstractScrollArea):
                     posBa = self.bPosFirst + bPosLine + colIdx
                     if self.getSelectionBegin() <= posBa < self.getSelectionEnd():
                         c = self.brushSelection.color()
-                        #print(c.name())
                         painter.setPen(self.penSelection)
                     elif self.highlighting:
                         if self.markedShown[posBa - self.bPosFirst]:
@@ -484,7 +761,6 @@ class QHexEdit(QAbstractScrollArea):
                     else:
                         r.setRect(pxPosX - self.pxCharWidth, pxPosY - self.pxCharHeight + self.pxSelectionSub,
                                   3 * self.pxCharWidth, self.pxCharHeight)
-                    #print(c.name())
                     painter.fillRect(r, c) # uncomment!
                     hex = self.hexDataShow[(bPosLine + colIdx) * 2:(bPosLine + colIdx) * 2 + 2]
                     painter.drawText(pxPosX, pxPosY, hex.upper() if self.hexCaps else hex)
@@ -493,7 +769,6 @@ class QHexEdit(QAbstractScrollArea):
                         ch = self.bytesToStr(self.dataShown[bPosLine+colIdx:bPosLine+colIdx+1])
                         r.setRect(pxPosAsciiX, pxPosY - self.pxCharHeight + self.pxSelectionSub, self.pxCharWidth,
                                   self.pxCharHeight)
-                        # print(f'{c = }')
                         painter.fillRect(r, c) # uncomment!
                         painter.drawText(pxPosAsciiX, pxPosY, ch)
                         pxPosAsciiX += self.pxCharWidth
@@ -608,8 +883,8 @@ class QHexEdit(QAbstractScrollArea):
         value = self.verticalScrollBar().value()
         self.bPosFirst = value * self.bytesPerLine
         self.bPosLast = self.bPosFirst + (self.rowsShown * self.bytesPerLine) - 1
-        if self.bPosLast >= self.chunks.size:
-            self.bPosLast = self.chunks.size - 1
+        if self.bPosLast >= self.chunks.getSize():
+            self.bPosLast = self.chunks.getSize() - 1
         self.readBuffers()
         self.setCursorPosition(self.cursorPosition)
 

@@ -189,7 +189,7 @@ class Chunks(QObject):
     def at(self, pos) -> bytes:
         return bytes(self.data(pos, 1))
 
-    def getPosition(self) -> int:
+    def getPos(self) -> int:
         return self.position
 
     def getSize(self) -> int:

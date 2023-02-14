@@ -45,6 +45,7 @@ class QHexWindow(QMainWindow):
         self.show()
 
     def closeEvent(self, event: QCloseEvent) -> None:
+        self.hexEdit.undoStack.clear()
         self.writeSettings()
 
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
@@ -119,6 +120,12 @@ class QHexWindow(QMainWindow):
     def showSearchDialog(self):
         pass
 
+    def undo(self):
+        self.hexEdit.undo()
+
+    def redo(self):
+        self.hexEdit.redo()
+
     # noinspection PyUnresolvedReferences
     def init(self):
         self.optionsDialog.accepted.connect(self.optionsAccepted)
@@ -159,8 +166,15 @@ class QHexWindow(QMainWindow):
         self.exitAction.setShortcut(QKeySequence.Close)
         self.exitAction.triggered.connect(self.close)
 
-        # self.undoAction = QAction(QIcon('Icons/Undo.svg'), '&Undo', self)
-        # self.redoAction = QAction(QIcon('Icons/Redo.svg'), '&Redo', self)
+        self.undoAction = QAction(QIcon('Icons/Undo.svg'), '&Undo', self)
+        self.undoAction.setStatusTip('Undo last changes')
+        self.undoAction.setShortcut(QKeySequence.Undo)
+        self.undoAction.triggered.connect(self.undo)
+
+        self.redoAction = QAction(QIcon('Icons/Redo.svg'), '&Redo', self)
+        self.redoAction.setStatusTip('Redo last changes')
+        self.redoAction.setShortcut(QKeySequence.Redo)
+        self.redoAction.triggered.connect(self.redo)
         # self.saveReadableSelection = QAction('Save Selection Readable', self)
 
         self.aboutAction = QAction('&About', self)
@@ -182,8 +196,8 @@ class QHexWindow(QMainWindow):
         self.fileMenu.addAction(self.exitAction)
 
         self.editMenu = self.menuBar().addMenu('&Edit')
-        # self.editMenu.addAction(self.undoAction)
-        # self.editMenu.addAction(self.redoAction)
+        self.editMenu.addAction(self.undoAction)
+        self.editMenu.addAction(self.redoAction)
         # self.editMenu.addAction(self.saveReadableSelection)
         self.editMenu.addSeparator()
         # self.editMenu.addAction(self.findAction)
@@ -219,10 +233,10 @@ class QHexWindow(QMainWindow):
         self.fileToolBar.addAction(self.openAction)
         self.fileToolBar.addAction(self.saveAction)
 
-        # self.editToolBar = self.addToolBar('Edit')
-        # self.editToolBar.setIconSize(QSize(16, 16))
-        # self.editToolBar.addAction(self.undoAction)
-        # self.editToolBar.addAction(self.redoAction)
+        self.editToolBar = self.addToolBar('Edit')
+        self.editToolBar.setIconSize(QSize(16, 16))
+        self.editToolBar.addAction(self.undoAction)
+        self.editToolBar.addAction(self.redoAction)
         # self.editToolBar.addAction(self.findAction)
 
     def loadFile(self, filename: str):

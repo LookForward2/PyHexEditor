@@ -41,7 +41,7 @@ class CharCommand(QUndoCommand):
             self.wasChanged = self.chunks.dataChanged(self.charPos)
             self.chunks.overwrite(self.charPos, self.newChar)
         if self.cmd == CCmd.removeAt:
-            self.oldChar = self.chunks.chunks[self.charPos]
+            self.oldChar = self.chunks.at(self.charPos)
             self.wasChanged = self.chunks.dataChanged(self.charPos)
             self.chunks.removeAt(self.charPos)
 
@@ -92,6 +92,19 @@ class UndoStack(QUndoStack):
                 self.push(cc)
             self.endMacro()
 
+    def insert(self, pos: int, ba: bytes):
+        if 0 <= pos <= self.chunks.size:
+            if len(ba) == 1:
+                cc = CharCommand(self.chunks, CCmd.insert, pos, ba)
+                self.push(cc)
+            elif len(ba) > 1:
+                txt = "Insert {} chars".format(len(ba))
+                self.beginMacro(txt)
+                for i in range(len(ba)):
+                    cc = CharCommand(self.chunks, CCmd.insert, pos + i, ba[i:i+1])
+                    self.push(cc)
+                self.endMacro()                
+
     def overwriteChar(self, pos: int, c: bytes): # len(c) = 1
         print('Undostack:overwriteChar', f'{pos = }', f'{c.hex() = }')
         print(f'{self.chunks.chunks = }')
@@ -106,3 +119,17 @@ class UndoStack(QUndoStack):
             self.removeAt(pos, length)
             self.insertArray(pos, ba)
             self.endMacro()
+
+    def overwrite(self, pos: int, ba: bytes): # no length argument - len(ba) instead
+        if 0 <= pos < self.chunks.size:
+            if len(ba) == 1:
+                print('Undostack:overwriteChar', f'{pos = }', f'{ba.hex() = }')
+                print(f'{self.chunks.chunks = }')
+                cc = CharCommand(self.chunks, CCmd.overwrite, pos, ba)
+                self.push(cc)
+            elif len(ba) > 1:
+                txt = f"Overwrite {len(ba)} chars"
+                self.beginMacro(txt)
+                self.removeAt(pos, len(ba))
+                self.insert(pos, ba)
+                self.endMacro()
