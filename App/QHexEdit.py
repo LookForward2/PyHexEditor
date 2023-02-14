@@ -389,7 +389,8 @@ class QHexEdit(QAbstractScrollArea):
         self.refresh()
 
     def selectionToReadableString(self) -> str:
-        pass
+        ba = self.chunks.data(self.getSelectionBegin(), self.getSelectionEnd() - self.getSelectionBegin())
+        return self.toReadable(ba)
 
     def selectedData(self) -> str:
         pass
@@ -409,7 +410,8 @@ class QHexEdit(QAbstractScrollArea):
         self.viewport().update()
 
     def toReadableString(self) -> str:
-        pass
+        ba = self.chunks.data(0, -1)
+        return self.toReadable(ba)
 
     def undo(self) -> None:
         self.undoStack.undo()

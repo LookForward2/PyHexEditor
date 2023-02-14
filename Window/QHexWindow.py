@@ -36,12 +36,13 @@ class QHexWindow(QMainWindow):
         self.aboutQtAction = QAction()
         self.optionsAction = QAction()
         self.findNextAction = QAction()
-        self.saveReadableSelection = QAction()
+        self.saveReadableSelectionAction = QAction()
         self.optionsDialog = OptionsDialog(self)
 
         self.setAcceptDrops(True)
         self.init()
-        self.setFixedSize(QSize(1200, 600))
+        #self.setFixedSize(QSize(1200, 600))
+        self.setMinimumSize(QSize(770, 400))
         self.show()
 
     def closeEvent(self, event: QCloseEvent) -> None:
@@ -61,6 +62,9 @@ class QHexWindow(QMainWindow):
 
     def about(self):
         QMessageBox.about(self, self.appName, 'Hexadecimal Viewer')
+
+    def aboutQt(self):
+        QMessageBox.aboutQt(self, self.appName)
 
     def dataChanged(self):
         self.setWindowModified(self.hexEdit.isModified())
@@ -92,8 +96,15 @@ class QHexWindow(QMainWindow):
 
         return self.saveFile(filename)
 
-    def saveSelectionToReadableFile(self):
-        pass
+    def saveSelectionReadable(self):
+        filters = "Text files (*.txt);;All files (*.*)"
+        defFilter = '*.txt'
+        defSuffix = defFilter[1:]
+        dialog = QFileDialog()
+        dialog.setDefaultSuffix(defSuffix)
+        filename, _ = dialog.getSaveFileName(self, 'Save As Readable...', \
+            self.currentFile.rsplit('.')[0] + defSuffix, filter=filters, initialFilter=defFilter)
+        return self.saveSelectionReadableFile(filename)
 
     def saveReadable(self):
         filters = "Text files (*.txt);;All files (*.*)"
@@ -158,7 +169,7 @@ class QHexWindow(QMainWindow):
         self.saveAsAction.triggered.connect(self.saveAs)
 
         self.saveReadableAction = QAction('Save &Readable', self)
-        self.saveReadableAction.setStatusTip('Save the file as ...')
+        self.saveReadableAction.setStatusTip('Save the file as readable ...')
         self.saveReadableAction.triggered.connect(self.saveReadable)
 
         self.exitAction = QAction('E&xit', self)
@@ -175,13 +186,19 @@ class QHexWindow(QMainWindow):
         self.redoAction.setStatusTip('Redo last changes')
         self.redoAction.setShortcut(QKeySequence.Redo)
         self.redoAction.triggered.connect(self.redo)
-        # self.saveReadableSelection = QAction('Save Selection Readable', self)
+        
+        self.saveReadableSelectionAction = QAction('Save Selection Readable', self)
+        self.saveReadableSelectionAction.setStatusTip('Save selection as readable ...')
+        self.saveReadableSelectionAction.triggered.connect(self.saveSelectionReadable)        
 
         self.aboutAction = QAction('&About', self)
         self.aboutAction.setStatusTip('About the program')
         self.aboutAction.triggered.connect(self.about)
 
         self.aboutQtAction = QAction('About &Qt', self)
+        self.aboutQtAction.setStatusTip('About the program')
+        self.aboutQtAction.triggered.connect(self.aboutQt)
+
         self.findAction = QAction(QIcon('Icons/Find.svg'), '&Find/Replace', self)
         self.findNextAction = QAction('Find &Next', self)
         self.optionsAction = QAction('&Options', self)
@@ -198,7 +215,8 @@ class QHexWindow(QMainWindow):
         self.editMenu = self.menuBar().addMenu('&Edit')
         self.editMenu.addAction(self.undoAction)
         self.editMenu.addAction(self.redoAction)
-        # self.editMenu.addAction(self.saveReadableSelection)
+
+        self.editMenu.addAction(self.saveReadableSelectionAction)
         self.editMenu.addSeparator()
         # self.editMenu.addAction(self.findAction)
         # self.editMenu.addAction(self.findNextAction)
@@ -271,7 +289,15 @@ class QHexWindow(QMainWindow):
             return False
 
     def saveReadableFile(self, filename: str):
-        readable_data = self.hexEdit.toReadable(self.hexEdit.chunks.data(0, -1))
+        readable_data = self.hexEdit.toReadableString()
+        file = QFile(filename)
+        file.open(QFile.WriteOnly | QFile.Text)
+        out = QTextStream(file)
+        out << readable_data
+        file.close()
+
+    def saveSelectionReadableFile(self, filename: str):
+        readable_data = self.hexEdit.selectionToReadableString()
         file = QFile(filename)
         file.open(QFile.WriteOnly | QFile.Text)
         out = QTextStream(file)
