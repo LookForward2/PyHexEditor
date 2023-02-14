@@ -151,7 +151,7 @@ class Chunks(QObject):
                 chunkIdx = self.getChunkIndex(position)
             posInBa = position - self.chunks[chunkIdx].absPos
             self.chunks[chunkIdx].data[posInBa:posInBa] = character[0:1]
-            self.chunks[chunkIdx].dataChanged[posInBa:posInBa] = bytes(b'\x01')
+            self.chunks[chunkIdx].dataChanged[posInBa:posInBa] = bytes(HIGHLIGHTED) # to highlight the change
             for i in range(chunkIdx+1, len(self.chunks)):
                 self.chunks[i].absPos += 1
             self.size += 1
@@ -166,7 +166,7 @@ class Chunks(QObject):
             chunkIdx = self.getChunkIndex(position)
             posInBa = position - self.chunks[chunkIdx].absPos
             self.chunks[chunkIdx].data[posInBa:posInBa + 1] = character[0:1]
-            self.chunks[chunkIdx].dataChanged[posInBa:posInBa + 1] = bytes(b'\x01')
+            self.chunks[chunkIdx].dataChanged[posInBa:posInBa + 1] = bytes(HIGHLIGHTED) # to highlight the change
             self.position = position
             return True
         else:

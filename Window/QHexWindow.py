@@ -42,7 +42,7 @@ class QHexWindow(QMainWindow):
         self.setAcceptDrops(True)
         self.init()
         #self.setFixedSize(QSize(1200, 600))
-        self.setMinimumSize(QSize(770, 400))
+        self.setMinimumSize(QSize(770, 390))
         self.show()
 
     def closeEvent(self, event: QCloseEvent) -> None:
@@ -269,9 +269,6 @@ class QHexWindow(QMainWindow):
         pass
 
     def saveFile(self, filename: str):
-        # if filename is self.currentFile:
-        #     self.file.write(self.hexEdit.data)
-        # else:
         data_to_save = self.hexEdit.chunks.data(0, -1)
         newfile = QSaveFile(filename)
         if not newfile.open(QSaveFile.WriteOnly | QSaveFile.Truncate):
@@ -305,13 +302,13 @@ class QHexWindow(QMainWindow):
         file.close()
 
     def setCurrentFile(self, filename: str):
-        currentFile = QFileInfo(filename).canonicalFilePath()
-        isUntitled = len(currentFile) == 0
+        self.currentFile = QFileInfo(filename).canonicalFilePath()
+        isUntitled = len(self.currentFile) == 0
         self.setWindowModified(False)
         if isUntitled:
-            self.setWindowFilePath("QHexEdit")
+            self.setWindowFilePath(self.appName)
         else:
-            self.setWindowFilePath(currentFile + " - QHexEdit")
+            self.setWindowFilePath(self.currentFile + " - " + self.appName)
 
     @staticmethod
     def strippedName(fullFilename: str) -> str:

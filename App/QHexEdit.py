@@ -492,12 +492,12 @@ class QHexEdit(QAbstractScrollArea):
             self.setCursorPosition(pos)
             self.setSelection(pos) 
         if event.matches(QKeySequence.SelectNextPage):
-            #pos = self.cursorPosition + (((self.rowsShown - 1) * 2 * self.bytesPerLine))
+            # pos = self.cursorPosition + (((self.rowsShown - 1) * 2 * self.bytesPerLine))
             pos = self.cursorPosition + (self.viewport().height() // self.pxCharHeight - 1) * 2 * self.bytesPerLine
             self.setCursorPosition(pos)
             self.setSelection(pos)
         if event.matches(QKeySequence.SelectPreviousPage):
-            #pos = self.cursorPosition - (((self.rowsShown - 1) * 2 * self.bytesPerLine))
+            # pos = self.cursorPosition - (((self.rowsShown - 1) * 2 * self.bytesPerLine))
             pos = self.cursorPosition - (self.viewport().height() // self.pxCharHeight - 1) * 2 * self.bytesPerLine
             self.setCursorPosition(pos)
             self.setSelection(pos)
@@ -539,152 +539,152 @@ class QHexEdit(QAbstractScrollArea):
 
         # Edit commands will be parced only if NOT ReadOnly
 
-        if self.readOnly:
-            self.refresh()
-            QAbstractScrollArea.keyPressEvent(self, event)
-            return
+        if not self.readOnly:
+            # self.refresh()
+            # QAbstractScrollArea.keyPressEvent(self, event)
+            # return
         
-        # Cut
-        if event.matches(QKeySequence.Cut):
-            ba = self.chunks.data(self.getSelectionBegin(), self.getSelectionEnd() - self.getSelectionBegin())
-            buf = str()
-            for i in range(0, len(ba), 32):
-                buf += ba[i:i+32].hex() + '\n'
-            clipboard = QApplication.clipboard()
-            print('cut\n', buf)
-            clipboard.setText(buf)
-            if self.overwriteMode:
-                self.replaceAtArray(self.getSelectionBegin(), \
-                    self.getSelectionEnd() - self.getSelectionBegin(), \
-                    bytes(self.getSelectionEnd() - self.getSelectionBegin())) # zero filled bytes
-            else:
-                self.removeChar(self.getSelectionBegin(), self.getSelectionEnd() - self.getSelectionBegin())
-            self.setCursorPosition(2 * self.getSelectionBegin())
-            self.resetSelection(2 * self.getSelectionBegin())
-        
-        # Paste
-        if event.matches(QKeySequence.Paste):
-            print('Paste Key Event')
-            clipboard = QApplication.clipboard()
-            ba = bytes.fromhex(clipboard.text()) # ?
-            print(ba)
-            if self.overwriteMode:
-                ba = ba[0:min(len(ba), self.chunks.size - self.bPosCurrent)]
-                self.replaceAtArray(self.bPosCurrent, len(ba), ba)
-            else:
-                self.insert(self.bPosCurrent, ba)
-            self.setCursorPosition(self.cursorPosition + 2 * len(ba))
-            self.resetSelection(self.getSelectionBegin())
-
-            # Delete char
-        elif event.matches(QKeySequence.Delete):
-            if self.getSelectionBegin() != self.getSelectionEnd():
-                self.bPosCurrent = self.getSelectionBegin()
+            # Cut
+            if event.matches(QKeySequence.Cut):
+                ba = self.chunks.data(self.getSelectionBegin(), self.getSelectionEnd() - self.getSelectionBegin())
+                buf = str()
+                for i in range(0, len(ba), 32):
+                    buf += ba[i:i+32].hex() + '\n'
+                clipboard = QApplication.clipboard()
+                print('cut\n', buf)
+                clipboard.setText(buf)
                 if self.overwriteMode:
-                    ba = bytes(self.getSelectionEnd() - self.getSelectionBegin()) # zero filled bytes
+                    self.replaceAtArray(self.getSelectionBegin(), \
+                        self.getSelectionEnd() - self.getSelectionBegin(), \
+                        bytes(self.getSelectionEnd() - self.getSelectionBegin())) # zero filled bytes
+                else:
+                    self.removeChar(self.getSelectionBegin(), self.getSelectionEnd() - self.getSelectionBegin())
+                self.setCursorPosition(2 * self.getSelectionBegin())
+                self.resetSelection(2 * self.getSelectionBegin())
+            
+            # Paste
+            if event.matches(QKeySequence.Paste):
+                print('Paste Key Event')
+                clipboard = QApplication.clipboard()
+                ba = bytes.fromhex(clipboard.text()) # ?
+                print(ba)
+                if self.overwriteMode:
+                    ba = ba[0:min(len(ba), self.chunks.size - self.bPosCurrent)]
                     self.replaceAtArray(self.bPosCurrent, len(ba), ba)
                 else:
-                    self.removeChar(self.bPosCurrent, self.getSelectionEnd() - self.getSelectionBegin())
-            else:
-                if self.overwriteMode:
-                    self.replaceChar(self.bPosCurrent, bytes(1)) # zero filled byte
-                else:
-                    self.removeChar(self.bPosCurrent, 1)
-        # Backspace
-        elif event.key() == Qt.Key_Backspace and event.modifiers() == Qt.NoModifier:
-            if self.getSelectionBegin() != self.getSelectionEnd():
-                self.bPosCurrent = self.getSelectionBegin()
-                self.setCursorPosition(2 * self.bPosCurrent)
-                if self.overwriteMode:
-                    ba = bytes(self.getSelectionEnd() - self.getSelectionBegin()) # zero filled byte
-                    self.replaceAtArray(self.bPosCurrent, len(ba), ba)
-                else:
-                    self.remove(self.bPosCurrent, self.getSelectionEnd() - self.getSelectionBegin())
-                self.resetSelection(2 * self.bPosCurrent)
-            else:
-                behindLastByte = False
-                if self.cursorPosition // 2 == self.chunks.size:
-                    behindLastByte = True
-                
-                self.bPosCurrent -= 1
-                if self.overwriteMode:
-                    self.replaceChar(self.bPosCurrent, bytes(1)) # zero filled byte
-                else:
-                    self.removeChar(self.bPosCurrent, 1)
-                
-                if behindLastByte: self.bPosCurrent -= 1
+                    self.insert(self.bPosCurrent, ba)
+                self.setCursorPosition(self.cursorPosition + 2 * len(ba))
+                self.resetSelection(self.getSelectionBegin())
 
-                self.setCursorPosition(2 * self.bPosCurrent)
-                self.resetSelection(2 * self.bPosCurrent)
-
-        # undo
-        elif event.matches(QKeySequence.Undo):
-            self.undo()
-
-        # redo
-        elif event.matches(QKeySequence.Redo):
-            self.redo()
-
-        elif (QApplication.keyboardModifiers() == Qt.NoModifier) or \
-                (QApplication.keyboardModifiers() == Qt.KeypadModifier) or \
-                (QApplication.keyboardModifiers() == Qt.ShiftModifier) or \
-                (QApplication.keyboardModifiers() == (Qt.AltModifier | Qt.ControlModifier)) or \
-                (QApplication.keyboardModifiers() == Qt.GroupSwitchModifier):
-            # hex and ascii input
-            if self.editAreaIsAscii:
-                #key = event.text()[0].toLatin1() #?
-                #key = event.text()[0]
-                key = event.text()
-            else:
-                #key = event.text()[0].toLower().toLatin1() #?
-                #key = event.text()[0].lower()
-                key = event.text().lower()
-            print(f'{key = }')
-            print(f'{self.overwriteMode = }')
-            if (('0' <= key <= '9' or 'a' <= key <= 'f') and not self.editAreaIsAscii) or \
-                    (key >= ' ' and self.editAreaIsAscii):
+                # Delete char
+            elif event.matches(QKeySequence.Delete):
                 if self.getSelectionBegin() != self.getSelectionEnd():
+                    self.bPosCurrent = self.getSelectionBegin()
                     if self.overwriteMode:
-                        length = self.getSelectionEnd() - self.getSelectionBegin()
-                        self.replaceAtArray(self.getSelectionBegin(), length, bytes(length)) # zero filled bytes
+                        ba = bytes(self.getSelectionEnd() - self.getSelectionBegin()) # zero filled bytes
+                        self.replaceAtArray(self.bPosCurrent, len(ba), ba)
                     else:
-                        self.removeChar(self.getSelectionBegin(), self.getSelectionEnd - self.getSelectionBegin())
-                        self.bPosCurrent = self.getSelectionBegin()
+                        self.removeChar(self.bPosCurrent, self.getSelectionEnd() - self.getSelectionBegin())
+                else:
+                    if self.overwriteMode:
+                        self.replaceChar(self.bPosCurrent, bytes(1)) # zero filled byte
+                    else:
+                        self.removeChar(self.bPosCurrent, 1)
+            # Backspace
+            elif event.key() == Qt.Key_Backspace and event.modifiers() == Qt.NoModifier:
+                if self.getSelectionBegin() != self.getSelectionEnd():
+                    self.bPosCurrent = self.getSelectionBegin()
+                    self.setCursorPosition(2 * self.bPosCurrent)
+                    if self.overwriteMode:
+                        ba = bytes(self.getSelectionEnd() - self.getSelectionBegin()) # zero filled byte
+                        self.replaceAtArray(self.bPosCurrent, len(ba), ba)
+                    else:
+                        self.remove(self.bPosCurrent, self.getSelectionEnd() - self.getSelectionBegin())
+                    self.resetSelection(2 * self.bPosCurrent)
+                else:
+                    behindLastByte = False
+                    if self.cursorPosition // 2 == self.chunks.size:
+                        behindLastByte = True
+                    
+                    self.bPosCurrent -= 1
+                    if self.overwriteMode:
+                        self.replaceChar(self.bPosCurrent, bytes(1)) # zero filled byte
+                    else:
+                        self.removeChar(self.bPosCurrent, 1)
+                    
+                    if behindLastByte: self.bPosCurrent -= 1
+
                     self.setCursorPosition(2 * self.bPosCurrent)
                     self.resetSelection(2 * self.bPosCurrent)
 
-                # If insert mode, then insert a byte
-                if not self.overwriteMode:
-                    if self.cursorPosition % 2 == 0:
-                        self.insert(self.bPosCurrent, bytes(1)) # zero filled byte
-                
-                # Change content
-                if self.chunks.size > 0:
-                    print(f'{self.chunks.size = }')
-                    print('self.chunks.chunks ', self.chunks.chunks)
-                    ch = bytes(key, encoding='ascii')
-                    if not self.editAreaIsAscii:
-                        print('keyevent self.chunks.chunks = ', self.chunks.chunks)
-                        hexVal = self.chunks.data(self.bPosCurrent, 1).hex() # hexVal: str, length = 2
-                        if self.cursorPosition % 2 == 0:
-                            print(f'{hexVal = }')
-                            print(f'{key = }')
-                            # 'QByteArray' object does not support item assignment
-                            # hexVal[0] = ord(key)
-                            hexVal = key + hexVal[1] # replace [7:4] bits of byte - even position 
-                            print(f'{hexVal = }')
+            # undo
+            elif event.matches(QKeySequence.Undo):
+                self.undo()
+
+            # redo
+            elif event.matches(QKeySequence.Redo):
+                self.redo()
+
+            elif (QApplication.keyboardModifiers() == Qt.NoModifier) or \
+                    (QApplication.keyboardModifiers() == Qt.KeypadModifier) or \
+                    (QApplication.keyboardModifiers() == Qt.ShiftModifier) or \
+                    (QApplication.keyboardModifiers() == (Qt.AltModifier | Qt.ControlModifier)) or \
+                    (QApplication.keyboardModifiers() == Qt.GroupSwitchModifier):
+                # hex and ascii input
+                if self.editAreaIsAscii:
+                    #key = event.text()[0].toLatin1() #?
+                    #key = event.text()[0]
+                    key = event.text()
+                else:
+                    #key = event.text()[0].toLower().toLatin1() #?
+                    #key = event.text()[0].lower()
+                    key = event.text().lower()
+                print(f'{key = }')
+                print(f'{self.overwriteMode = }')
+                if (('0' <= key <= '9' or 'a' <= key <= 'f') and not self.editAreaIsAscii) or \
+                        (key >= ' ' and self.editAreaIsAscii):
+                    if self.getSelectionBegin() != self.getSelectionEnd():
+                        if self.overwriteMode:
+                            length = self.getSelectionEnd() - self.getSelectionBegin()
+                            self.replaceAtArray(self.getSelectionBegin(), length, bytes(length)) # zero filled bytes
                         else:
-                            hexVal = hexVal[0] + key # replace [3:0] bits of byte - odd position
-                            print(f'{hexVal = }')
-                        ch = bytes.fromhex(hexVal)
-                    print(f'char {ch}')
-                    self.replaceChar(self.bPosCurrent, ch)
-                    if self.editAreaIsAscii:
-                        self.setCursorPosition(self.cursorPosition + 2)
-                    else:
-                        self.setCursorPosition(self.cursorPosition + 1)
-                    self.resetSelection(self.cursorPosition)
- 
+                            self.removeChar(self.getSelectionBegin(), self.getSelectionEnd - self.getSelectionBegin())
+                            self.bPosCurrent = self.getSelectionBegin()
+                        self.setCursorPosition(2 * self.bPosCurrent)
+                        self.resetSelection(2 * self.bPosCurrent)
+
+                    # If insert mode, then insert a byte
+                    if not self.overwriteMode:
+                        if self.cursorPosition % 2 == 0:
+                            self.insert(self.bPosCurrent, bytes(1)) # zero filled byte
+                    
+                    # Change content
+                    if self.chunks.size > 0:
+                        print(f'{self.chunks.size = }')
+                        print('self.chunks.chunks ', self.chunks.chunks)
+                        ch = bytes(key, encoding='ascii')
+                        if not self.editAreaIsAscii:
+                            print('keyevent self.chunks.chunks = ', self.chunks.chunks)
+                            hexVal = self.chunks.data(self.bPosCurrent, 1).hex() # hexVal: str, length = 2
+                            if self.cursorPosition % 2 == 0:
+                                print(f'{hexVal = }')
+                                print(f'{key = }')
+                                # 'QByteArray' object does not support item assignment
+                                # hexVal[0] = ord(key)
+                                hexVal = key + hexVal[1] # replace [7:4] bits of byte - even position 
+                                print(f'{hexVal = }')
+                            else:
+                                hexVal = hexVal[0] + key # replace [3:0] bits of byte - odd position
+                                print(f'{hexVal = }')
+                            ch = bytes.fromhex(hexVal)
+                        print(f'char {ch}')
+                        self.replaceChar(self.bPosCurrent, ch)
+                        if self.editAreaIsAscii:
+                            self.setCursorPosition(self.cursorPosition + 2)
+                        else:
+                            self.setCursorPosition(self.cursorPosition + 1)
+                        self.resetSelection(self.cursorPosition)
+            #end edit section if not readonly
 
         self.refresh()
         QAbstractScrollArea.keyPressEvent(self, event)
