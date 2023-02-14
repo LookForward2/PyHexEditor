@@ -124,8 +124,11 @@ class QHexWindow(QMainWindow):
     def setAddress(self, addr):
         self.labelAddress.setText(str(addr))
 
-    def setOverwriteMode(self):
-        self.labelOverwriteMode.setText()
+    def setOverwriteMode(self, mode):
+        if mode:
+            self.labelOverwriteMode.setText("Overwrite")
+        else:
+            self.labelOverwriteMode.setText("Insert")
 
     def setSize(self, size):
         self.labelSize.setText(str(size))
@@ -246,6 +249,7 @@ class QHexWindow(QMainWindow):
         self.statusBar().addPermanentWidget(QLabel('Mode:'))
         self.labelOverwriteMode.setMinimumWidth(70)
         self.statusBar().addPermanentWidget(self.labelOverwriteMode)
+        self.setOverwriteMode(self.hexEdit.overwriteMode)
 
         self.statusBar().showMessage('Ready', 2000)
 
