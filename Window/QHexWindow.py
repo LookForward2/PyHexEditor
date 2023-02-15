@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import QMainWindow, QMenu, QToolBar, QAction, QLabel, QMessageBox, QFileDialog
-from PyQt5.QtGui import QCloseEvent, QDragEnterEvent, QDropEvent, QIcon, QKeySequence
-from PyQt5.QtCore import QFile, QSize, QFileInfo, QSettings, QSaveFile, QTextStream
+from PyQt5.QtGui import QCloseEvent, QDragEnterEvent, QDropEvent, QIcon, QKeySequence, QColor, QFont
+from PyQt5.QtCore import QFile, QSize, QFileInfo, QSettings, QSaveFile, QTextStream, QPoint
 from Dialog.OptionsDialog import OptionsDialog
 from Dialog.SearchDialog import SearchDialog
 from App.QHexEdit import QHexEdit
@@ -136,7 +136,7 @@ class QHexWindow(QMainWindow):
         self.labelSize.setText(str(size))
 
     def showOptionsDialog(self):
-        pass
+        self.optionsDialog.show()
 
     def showSearchDialog(self):
         self.searchDialog.show()
@@ -220,6 +220,8 @@ class QHexWindow(QMainWindow):
         self.findNextAction.triggered.connect(self.findNext)
 
         self.optionsAction = QAction('&Options', self)
+        self.optionsAction.setStatusTip('Show the settings dialog')
+        self.optionsAction.triggered.connect(self.showOptionsDialog)
 
     def createMenus(self):
         self.fileMenu = self.menuBar().addMenu('&File')
@@ -239,7 +241,7 @@ class QHexWindow(QMainWindow):
         self.editMenu.addAction(self.findAction)
         self.editMenu.addAction(self.findNextAction)
         self.editMenu.addSeparator()
-        # self.editMenu.addAction(self.optionsAction)
+        self.editMenu.addAction(self.optionsAction)
 
         self.helpMenu = self.menuBar().addMenu('&Help')
         self.helpMenu.addAction(self.aboutAction)
@@ -285,7 +287,25 @@ class QHexWindow(QMainWindow):
         self.statusBar().showMessage('File Loaded', 2000)
 
     def readSettings(self):
-        pass
+        settings = QSettings()
+        pos = QPoint(settings.value("pos", QPoint(200, 200)))
+        size = QSize(settings.value("size", QSize(770, 390)))
+        self.move(pos)
+        self.resize(size)
+
+        self.hexEdit.setAddressArea(settings.value("AddressArea") == 'true')
+        self.hexEdit.setAsciiArea(settings.value("AsciiArea") == 'true')
+        self.hexEdit.highlighting = (settings.value("Highlighting") == 'true')
+        self.hexEdit.setOverwriteMode(settings.value("OverwriteMode") == 'true')
+        self.hexEdit.readOnly = (settings.value("ReadOnly") == 'true')
+
+        self.hexEdit.setHighlightingColor(QColor(settings.value("HighlightingColor"))) # QColor
+        self.hexEdit.setAddressAreaColor(QColor(settings.value("AddressAreaColor"))) # QColor
+        self.hexEdit.setSelectionColor(QColor(settings.value("SelectionColor"))) # QColor
+        self.hexEdit.setFont(QFont(settings.value("WidgetFont"))) # QFont
+
+        # self.hexEdit.setAddressWidth(int(settings.value("AddressAreaWidth"))) #int
+        # self.hexEdit.setBytesPerLine(int(settings.value("BytesPerLine"))) #int
 
     def saveFile(self, filename: str):
         data_to_save = self.hexEdit.chunks.data(0, -1)

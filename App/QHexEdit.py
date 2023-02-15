@@ -208,7 +208,6 @@ class QHexEdit(QAbstractScrollArea):
         self.highlightingColor = QColor(0xff, 0xff, 0x99, 0xff)
         self.brushHighlighted.setColor(self.highlightingColor)
         self.selectionColor = QColor(0x99, 0xff, 0x99, 0xff)
-        #self.brushSelection.setColor(Qt.green)
         self.brushSelection.setColor(self.selectionColor)
 
         """
@@ -217,7 +216,7 @@ class QHexEdit(QAbstractScrollArea):
         (highlightingColor()).
         """
 
-        self.selectionColor = self.palette().highlight().color()
+        #self.selectionColor = self.palette().highlight().color()
         """
         Property selection color sets (setSelectionColor()) the background
         color of selected text areas. You can also read the color
@@ -276,6 +275,25 @@ class QHexEdit(QAbstractScrollArea):
         self.adjust()
         self.setCursorPosition(self.cursorPosition)
         self.viewport().update()
+
+    def setHighlightingColor(self, color: QColor) -> None:
+        self.brushHighlighted = QBrush(color)
+        self.highlightingColor = color
+        #self.highlightingColor = QColor(0xff, 0xff, 0x99, 0xff)
+        #self.brushHighlighted.setColor(self.highlightingColor)
+        self.penHighlighted = QPen(self.viewport().palette().color(QPalette.WindowText))
+        self.viewport().update()
+
+    def setOverwriteMode(self, mode: bool) -> None:
+        self.overwriteMode = mode
+        self.overwriteModeChanged.emit(mode)
+
+    def setSelectionColor(self, color: QColor) -> None:
+        self.brushSelection = QBrush(color)
+        self.selectionColor = color
+        #self.brushSelection.setColor(self.selectionColor)
+        self.penSelection = QPen(self.viewport().palette().color(QPalette.WindowText))
+        self.viewport().update()  
 
     def setCursorPosition(self, position: int) -> None:
         
