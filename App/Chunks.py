@@ -119,7 +119,7 @@ class Chunks(QObject):
         self.data(position, 1, highlighted)
         return bool(highlighted[0])
 
-    def indexOf(self, array: bytearray, _from: int) -> int:
+    def indexOf(self, array: bytes, _from: int) -> int:
         res = -1
         for pos in range(_from, self.size, BUFFER_SIZE):
             buffer = self.data(pos, BUFFER_SIZE + len(array) - 1)
@@ -129,7 +129,7 @@ class Chunks(QObject):
                 break
         return res
 
-    def lastIndexOf(self, array: bytearray, _from: int) -> int:
+    def lastIndexOf(self, array: bytes, _from: int) -> int:
         res = -1
         for pos in range(_from, 0, -BUFFER_SIZE):
             sPos = pos - BUFFER_SIZE - len(array) + 1

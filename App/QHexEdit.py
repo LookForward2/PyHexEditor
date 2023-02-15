@@ -375,13 +375,27 @@ class QHexEdit(QAbstractScrollArea):
         self.viewport().update()
 
     def indexOf(self, array: bytes, _from: int) -> int:
-        pass
+        pos = self.chunks.indexOf(array, _from)
+        if pos > -1:
+            curPos = pos*2
+            self.setCursorPosition(curPos + len(array)*2)
+            self.resetSelection(curPos)
+            self.setSelection(curPos + len(array)*2)
+            self.ensureVisible()
+        return pos
 
     def isModified(self) -> bool:
         return self.modified
 
     def lastIndexOf(self, array: bytes, _from: int) -> int:
-        pass
+        pos = self.chunks.lastIndexOf(array, _from)
+        if pos > -1:
+            curPos = pos*2
+            self.setCursorPosition(curPos - 1)
+            self.resetSelection(curPos)
+            self.setSelection(curPos + len(array)*2)
+            self.ensureVisible()
+        return pos
 
     def redo(self) -> None:
         self.undoStack.redo()

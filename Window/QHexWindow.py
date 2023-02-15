@@ -2,6 +2,7 @@ from PyQt5.QtWidgets import QMainWindow, QMenu, QToolBar, QAction, QLabel, QMess
 from PyQt5.QtGui import QCloseEvent, QDragEnterEvent, QDropEvent, QIcon, QKeySequence
 from PyQt5.QtCore import QFile, QSize, QFileInfo, QSettings, QSaveFile, QTextStream
 from Dialog.OptionsDialog import OptionsDialog
+from Dialog.SearchDialog import SearchDialog
 from App.QHexEdit import QHexEdit
 
 
@@ -40,6 +41,7 @@ class QHexWindow(QMainWindow):
         self.findNextAction = QAction()
         self.saveReadableSelectionAction = QAction()
         self.optionsDialog = OptionsDialog(self)
+        self.searchDialog = SearchDialog(self, self.hexEdit)
 
         self.setAcceptDrops(True)
         self.init()
@@ -86,7 +88,7 @@ class QHexWindow(QMainWindow):
         self.readSettings()
 
     def findNext(self):
-        pass
+        self.searchDialog.findNext()
 
     def save(self):
         if self.isUntitled:
@@ -137,7 +139,7 @@ class QHexWindow(QMainWindow):
         pass
 
     def showSearchDialog(self):
-        pass
+        self.searchDialog.show()
 
     def undo(self):
         self.hexEdit.undo()
@@ -208,7 +210,15 @@ class QHexWindow(QMainWindow):
         self.aboutQtAction.triggered.connect(self.aboutQt)
 
         self.findAction = QAction(QIcon('Icons/Find.svg'), '&Find/Replace', self)
+        self.findAction.setShortcut(QKeySequence.Find)
+        self.findAction.setStatusTip('Show the find dialog')
+        self.findAction.triggered.connect(self.showSearchDialog)
+
         self.findNextAction = QAction('Find &Next', self)
+        self.findNextAction.setShortcut(QKeySequence.FindNext)
+        self.findNextAction.setStatusTip('Find a next occurrence')
+        self.findNextAction.triggered.connect(self.findNext)
+
         self.optionsAction = QAction('&Options', self)
 
     def createMenus(self):
@@ -226,8 +236,8 @@ class QHexWindow(QMainWindow):
 
         self.editMenu.addAction(self.saveReadableSelectionAction)
         self.editMenu.addSeparator()
-        # self.editMenu.addAction(self.findAction)
-        # self.editMenu.addAction(self.findNextAction)
+        self.editMenu.addAction(self.findAction)
+        self.editMenu.addAction(self.findNextAction)
         self.editMenu.addSeparator()
         # self.editMenu.addAction(self.optionsAction)
 
