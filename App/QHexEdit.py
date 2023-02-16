@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import QWidget, QAbstractScrollArea, QApplication
 from PyQt5.QtGui import QColor, QFont, QResizeEvent, QPaintEvent, QMouseEvent, QKeyEvent, QPainter, QPalette, QPen, \
     QBrush, QKeySequence
-from PyQt5.QtCore import QByteArray, QIODevice, QPoint, QRect, Qt, QTimer
+from PyQt5.QtCore import QIODevice, QPoint, QRect, Qt, QTimer
 from PyQt5.QtCore import pyqtSignal as QSignal
 from App.Chunks import Chunks
 from App.UndoStack import UndoStack
@@ -350,7 +350,7 @@ class QHexEdit(QAbstractScrollArea):
         else:
             return -1
 
-    def setDataArray(self, array: QByteArray) -> None:
+    def setDataArray(self, array: bytes) -> None:
         pass
 
     def setDataDevice(self, device: QIODevice) -> bool:
@@ -368,19 +368,11 @@ class QHexEdit(QAbstractScrollArea):
     def insert(self, index: int, array: bytes) -> None:
         self.undoStack.insert(index, array)
 
-    def removeChar(self, index: int, length: int) -> None:
+    def remove(self, index: int, length: int) -> None:
         self.undoStack.removeAt(index, length)
-
-    def replaceChar(self, index: int, char: bytes) -> None:
-        self.undoStack.overwrite(index, char[0:1]) # assert only 1 byte
-        self.refresh()
 
     def replace(self, index: int, array: bytes) -> None: # united both replaceChar and replaceAtArray
         self.undoStack.overwrite(index, array)
-        self.refresh()
-
-    def replaceAtArray(self, position: int, length: int, array: bytes) -> None:
-        self.undoStack.overwrite(position, array)
         self.refresh()
 
     def ensureVisible(self) -> None:
@@ -583,11 +575,10 @@ class QHexEdit(QAbstractScrollArea):
                 clipboard = QApplication.clipboard()
                 clipboard.setText(buf)
                 if self.overwriteMode:
-                    self.replaceAtArray(self.getSelectionBegin(), \
-                        self.getSelectionEnd() - self.getSelectionBegin(), \
+                    self.replace(self.getSelectionBegin(), \
                         bytes(self.getSelectionEnd() - self.getSelectionBegin())) # zero filled bytes
                 else:
-                    self.removeChar(self.getSelectionBegin(), self.getSelectionEnd() - self.getSelectionBegin())
+                    self.remove(self.getSelectionBegin(), self.getSelectionEnd() - self.getSelectionBegin())
                 self.setCursorPosition(2 * self.getSelectionBegin())
                 self.resetSelection(2 * self.getSelectionBegin())
             
@@ -597,7 +588,7 @@ class QHexEdit(QAbstractScrollArea):
                 ba = bytes.fromhex(clipboard.text()) # ?
                 if self.overwriteMode:
                     ba = ba[0:min(len(ba), self.chunks.size - self.bPosCurrent)]
-                    self.replaceAtArray(self.bPosCurrent, len(ba), ba)
+                    self.replace(self.bPosCurrent, ba)
                 else:
                     self.insert(self.bPosCurrent, ba)
                 self.setCursorPosition(self.cursorPosition + 2 * len(ba))
@@ -609,14 +600,14 @@ class QHexEdit(QAbstractScrollArea):
                     self.bPosCurrent = self.getSelectionBegin()
                     if self.overwriteMode:
                         ba = bytes(self.getSelectionEnd() - self.getSelectionBegin()) # zero filled bytes
-                        self.replaceAtArray(self.bPosCurrent, len(ba), ba)
+                        self.replace(self.bPosCurrent, ba)
                     else:
-                        self.removeChar(self.bPosCurrent, self.getSelectionEnd() - self.getSelectionBegin())
+                        self.remove(self.bPosCurrent, self.getSelectionEnd() - self.getSelectionBegin())
                 else:
                     if self.overwriteMode:
-                        self.replaceChar(self.bPosCurrent, bytes(1)) # zero filled byte
+                        self.replace(self.bPosCurrent, bytes(1)) # zero filled byte
                     else:
-                        self.removeChar(self.bPosCurrent, 1)
+                        self.remove(self.bPosCurrent, 1)
                 self.setCursorPosition(2 * self.bPosCurrent)
                 self.resetSelection(2 * self.bPosCurrent)
             # Backspace
@@ -626,9 +617,9 @@ class QHexEdit(QAbstractScrollArea):
                     self.setCursorPosition(2 * self.bPosCurrent)
                     if self.overwriteMode:
                         ba = bytes(self.getSelectionEnd() - self.getSelectionBegin()) # zero filled byte
-                        self.replaceAtArray(self.bPosCurrent, len(ba), ba)
+                        self.replace(self.bPosCurrent, ba)
                     else:
-                        self.removeChar(self.bPosCurrent, self.getSelectionEnd() - self.getSelectionBegin())
+                        self.remove(self.bPosCurrent, self.getSelectionEnd() - self.getSelectionBegin())
                     self.resetSelection(2 * self.bPosCurrent)
                 else:
                     behindLastByte = False
@@ -637,9 +628,9 @@ class QHexEdit(QAbstractScrollArea):
                     
                     self.bPosCurrent -= 1
                     if self.overwriteMode:
-                        self.replaceChar(self.bPosCurrent, bytes(1)) # zero filled byte
+                        self.replace(self.bPosCurrent, bytes(1)) # zero filled byte
                     else:
-                        self.removeChar(self.bPosCurrent, 1)
+                        self.remove(self.bPosCurrent, 1)
                     
                     if not behindLastByte: self.bPosCurrent -= 1
 
@@ -670,9 +661,9 @@ class QHexEdit(QAbstractScrollArea):
                     if self.getSelectionBegin() != self.getSelectionEnd():
                         if self.overwriteMode:
                             length = self.getSelectionEnd() - self.getSelectionBegin()
-                            self.replaceAtArray(self.getSelectionBegin(), length, bytes(length)) # zero filled bytes
+                            self.replace(self.getSelectionBegin(), bytes(length)) # zero filled bytes
                         else:
-                            self.removeChar(self.getSelectionBegin(), self.getSelectionEnd - self.getSelectionBegin())
+                            self.remove(self.getSelectionBegin(), self.getSelectionEnd - self.getSelectionBegin())
                             self.bPosCurrent = self.getSelectionBegin()
                         self.setCursorPosition(2 * self.bPosCurrent)
                         self.resetSelection(2 * self.bPosCurrent)
@@ -684,18 +675,21 @@ class QHexEdit(QAbstractScrollArea):
                     
                     # Change content
                     if self.chunks.size > 0:
-                        ch = bytes(key, encoding='ascii')
-                        if not self.editAreaIsAscii:
+                        if self.editAreaIsAscii:
+                            try:
+                                ch = bytes(key, encoding='ascii', errors='strict')
+                                self.replace(self.bPosCurrent, ch)
+                                self.setCursorPosition(self.cursorPosition + 2)
+                            except UnicodeEncodeError as asciiError:
+                                print('UnicodeEncodeError:', asciiError)
+                        else:
                             hexVal = self.chunks.data(self.bPosCurrent, 1).hex() # hexVal: str, length = 2
                             if self.cursorPosition % 2 == 0:
                                 hexVal = key + hexVal[1] # replace [7:4] bits of byte - even position 
                             else:
                                 hexVal = hexVal[0] + key # replace [3:0] bits of byte - odd position
-                            ch = bytes.fromhex(hexVal)
-                        self.replaceChar(self.bPosCurrent, ch)
-                        if self.editAreaIsAscii:
-                            self.setCursorPosition(self.cursorPosition + 2)
-                        else:
+                            ch = bytes.fromhex(hexVal)                          
+                            self.replace(self.bPosCurrent, ch)
                             self.setCursorPosition(self.cursorPosition + 1)
                         self.resetSelection(self.cursorPosition)
             #end edit section if not readonly
