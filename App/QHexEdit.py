@@ -241,6 +241,8 @@ class QHexEdit(QAbstractScrollArea):
 
         self.setFont(QFont("Monospace", 12))
 
+        # end of __init__()
+
     def setAddressArea(self, addressArea: bool) -> None:
         self.addressArea = addressArea
         self.adjust()
@@ -281,8 +283,6 @@ class QHexEdit(QAbstractScrollArea):
     def setHighlightingColor(self, color: QColor) -> None:
         self.brushHighlighted = QBrush(color)
         self.highlightingColor = color
-        #self.highlightingColor = QColor(0xff, 0xff, 0x99, 0xff)
-        #self.brushHighlighted.setColor(self.highlightingColor)
         self.penHighlighted = QPen(self.viewport().palette().color(QPalette.WindowText))
         self.viewport().update()
 
@@ -293,7 +293,6 @@ class QHexEdit(QAbstractScrollArea):
     def setSelectionColor(self, color: QColor) -> None:
         self.brushSelection = QBrush(color)
         self.selectionColor = color
-        #self.brushSelection.setColor(self.selectionColor)
         self.penSelection = QPen(self.viewport().palette().color(QPalette.WindowText))
         self.viewport().update()  
 
@@ -371,7 +370,7 @@ class QHexEdit(QAbstractScrollArea):
     def remove(self, index: int, length: int) -> None:
         self.undoStack.removeAt(index, length)
 
-    def replace(self, index: int, array: bytes) -> None: # united both replaceChar and replaceAtArray
+    def replace(self, index: int, array: bytes) -> None: # length is not necessary as length = len(array)
         self.undoStack.overwrite(index, array)
         self.refresh()
 
@@ -610,6 +609,7 @@ class QHexEdit(QAbstractScrollArea):
                         self.remove(self.bPosCurrent, 1)
                 self.setCursorPosition(2 * self.bPosCurrent)
                 self.resetSelection(2 * self.bPosCurrent)
+            
             # Backspace
             elif event.key() == Qt.Key_Backspace and event.modifiers() == Qt.NoModifier:
                 if self.getSelectionBegin() != self.getSelectionEnd():

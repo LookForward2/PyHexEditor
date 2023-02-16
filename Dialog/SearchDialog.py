@@ -74,11 +74,11 @@ class SearchDialog(QDialog):
                              QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
                 
                 if result == QMessageBox.Yes:
-                    self._hexEdit.replaceAtArray(idx, len(replaceBa), replaceBa)
+                    self._hexEdit.replace(idx, replaceBa)
                     self._hexEdit.update()
                     
             else:
-                self._hexEdit.replaceAtArray(idx, len(replaceBa), replaceBa)
+                self._hexEdit.replace(idx, replaceBa)
                     
         return result
 

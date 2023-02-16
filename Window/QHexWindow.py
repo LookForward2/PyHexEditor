@@ -51,7 +51,6 @@ class QHexWindow(QMainWindow):
 
     def closeEvent(self, event: QCloseEvent) -> None:
         self.hexEdit.undoStack.clear()
-        # if self.hexEdit.clipboard: self.hexEdit.clipboard.clear()
         self.writeSettings()
 
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
@@ -66,7 +65,7 @@ class QHexWindow(QMainWindow):
             event.accept()
 
     def about(self):
-        QMessageBox.about(self, self.appName, 'Hexadecimal Viewer')
+        QMessageBox.about(self, self.appName, 'PyQt Hexadecimal Editor')
 
     def aboutQt(self):
         QMessageBox.aboutQt(self, self.appName)
@@ -275,7 +274,7 @@ class QHexWindow(QMainWindow):
         self.editToolBar.setIconSize(QSize(16, 16))
         self.editToolBar.addAction(self.undoAction)
         self.editToolBar.addAction(self.redoAction)
-        # self.editToolBar.addAction(self.findAction)
+        self.editToolBar.addAction(self.findAction)
 
     def loadFile(self, filename: str):
         self.file.setFileName(filename)
