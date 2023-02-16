@@ -5,7 +5,7 @@ from PyQt5.QtCore import QIODevice, QPoint, QRect, Qt, QTimer
 from PyQt5.QtCore import pyqtSignal as QSignal
 from App.Chunks import Chunks
 from App.UndoStack import UndoStack
-import math
+import math, sys
 
 
 class QHexEdit(QAbstractScrollArea):
@@ -681,7 +681,7 @@ class QHexEdit(QAbstractScrollArea):
                                 self.replace(self.bPosCurrent, ch)
                                 self.setCursorPosition(self.cursorPosition + 2)
                             except UnicodeEncodeError as asciiError:
-                                print('UnicodeEncodeError:', asciiError)
+                                print('UnicodeEncodeError:', asciiError, file=sys.stderr)
                         else:
                             hexVal = self.chunks.data(self.bPosCurrent, 1).hex() # hexVal: str, length = 2
                             if self.cursorPosition % 2 == 0:
