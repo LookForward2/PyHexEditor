@@ -135,7 +135,7 @@ class Ui_OptionsDialog(object):
 
     def retranslateUi(self, OptionsDialog):
         _translate = QtCore.QCoreApplication.translate
-        OptionsDialog.setWindowTitle(_translate("OptionsDialog", "QHexEdit - Options"))
+        OptionsDialog.setWindowTitle(_translate("OptionsDialog", "PyHexEditor - Options"))
         self.gbFlags.setTitle(_translate("OptionsDialog", "Flags"))
         self.cbReadOnly.setText(_translate("OptionsDialog", "ReadOnly"))
         self.cbHighlighting.setText(_translate("OptionsDialog", "Higlighting"))

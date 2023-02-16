@@ -102,7 +102,7 @@ class Ui_SearchDialog(object):
 
     def retranslateUi(self, SearchDialog):
         _translate = QtCore.QCoreApplication.translate
-        SearchDialog.setWindowTitle(_translate("SearchDialog", "QHexEdit - Find/Replace"))
+        SearchDialog.setWindowTitle(_translate("SearchDialog", "PyHexEditor - Find/Replace"))
         self.gbFind.setTitle(_translate("SearchDialog", "Find"))
         self.cbFindFormat.setItemText(0, _translate("SearchDialog", "Hex"))
         self.cbFindFormat.setItemText(1, _translate("SearchDialog", "UTF-8"))

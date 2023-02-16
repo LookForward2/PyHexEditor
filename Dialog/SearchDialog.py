@@ -10,6 +10,7 @@ class SearchDialog(QDialog):
         self.ui = Ui_SearchDialog()
         self.ui.setupUi(self)
         self._hexEdit = hexEdit
+        self.appName = parent.appName
         
     def findNext(self):
         startIdx = self._hexEdit.cursorPosition // 2
@@ -54,7 +55,7 @@ class SearchDialog(QDialog):
                     goOn = QMessageBox.Cancel
                     
         if replaceCounter > 0:
-            QMessageBox.information(self, "QHexEdit", "%s occurrences replaced" % replaceCounter)
+            QMessageBox.information(self, self.appName, "%s occurrences replaced" % replaceCounter)
             
     def getContent(self, comboIndex, inputStr) -> bytes:
         if comboIndex == 0:     # hex
@@ -70,7 +71,7 @@ class SearchDialog(QDialog):
         
         if len(replaceBa) >= 0:
             if self.ui.cbPrompt.isChecked():
-                result = QMessageBox.question(self, "QHexEdit", "Replace occurrence?", 
+                result = QMessageBox.question(self, self.appName, "Replace occurrence?", 
                              QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
                 
                 if result == QMessageBox.Yes:

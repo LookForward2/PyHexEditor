@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 import sys
 from PyQt5.QtGui import QColor, QFont, QPalette, QPen, QBrush
 from PyQt5.QtWidgets import QDialog, QMessageBox, QColorDialog, QFontDialog
