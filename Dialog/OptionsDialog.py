@@ -39,6 +39,7 @@ class OptionsDialog(QDialog):
 
         if sys.version_info >= (3, 0): # determine Python version
             self.ui.sbAddressAreaWidth.setValue(int(settings.value("AddressAreaWidth", 4)))
+            self.ui.sbBytesPerLine.setValue(int(settings.value("BytesPerLine", 16)))
             self.ui.cbAddressArea.setChecked(settings.value("AddressArea", 'true')=='true')
             self.ui.cbAsciiArea.setChecked(settings.value("AsciiArea", 'true')=='true')
             self.ui.cbHighlighting.setChecked(settings.value("Highlighting", 'true')=='true')
@@ -78,6 +79,7 @@ class OptionsDialog(QDialog):
         settings.setValue("WidgetFont", self.ui.leWidgetFont.font())
         
         settings.setValue("AddressAreaWidth", self.ui.sbAddressAreaWidth.value())
+        settings.setValue("BytesPerLine", self.ui.sbBytesPerLine.value())
         
     def reject(self):
         super(OptionsDialog, self).hide()

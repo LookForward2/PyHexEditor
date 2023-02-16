@@ -299,13 +299,13 @@ class QHexWindow(QMainWindow):
         self.hexEdit.setOverwriteMode(settings.value("OverwriteMode") == 'true')
         self.hexEdit.readOnly = (settings.value("ReadOnly") == 'true')
 
-        self.hexEdit.setHighlightingColor(QColor(settings.value("HighlightingColor"))) # QColor
-        self.hexEdit.setAddressAreaColor(QColor(settings.value("AddressAreaColor"))) # QColor
-        self.hexEdit.setSelectionColor(QColor(settings.value("SelectionColor"))) # QColor
-        self.hexEdit.setFont(QFont(settings.value("WidgetFont"))) # QFont
+        self.hexEdit.setHighlightingColor(QColor(settings.value("HighlightingColor")))
+        self.hexEdit.setAddressAreaColor(QColor(settings.value("AddressAreaColor")))
+        self.hexEdit.setSelectionColor(QColor(settings.value("SelectionColor")))
+        self.hexEdit.setFont(QFont(settings.value("WidgetFont")))
 
-        # self.hexEdit.setAddressWidth(int(settings.value("AddressAreaWidth"))) #int
-        # self.hexEdit.setBytesPerLine(int(settings.value("BytesPerLine"))) #int
+        self.hexEdit.setAddressWidth(int(settings.value("AddressAreaWidth")))
+        self.hexEdit.setBytesPerLine(int(settings.value("BytesPerLine")))
 
     def saveFile(self, filename: str):
         data_to_save = self.hexEdit.chunks.data(0, -1)

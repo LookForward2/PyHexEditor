@@ -5,6 +5,7 @@ from PyQt5.QtCore import QByteArray, QIODevice, QPoint, QRect, Qt, QTimer
 from PyQt5.QtCore import pyqtSignal as QSignal
 from App.Chunks import Chunks
 from App.UndoStack import UndoStack
+import math
 
 
 class QHexEdit(QAbstractScrollArea):
@@ -257,6 +258,7 @@ class QHexEdit(QAbstractScrollArea):
         self.viewport().update()
 
     def setAddressWidth(self, width: int) -> None:
+        self.addressWidth = width
         self.adjust()
         self.setCursorPosition(self.cursorPosition)
         self.viewport().update()
@@ -817,7 +819,7 @@ class QHexEdit(QAbstractScrollArea):
         if self.dynamicBytesPerLine:
             pxFixGaps = 0
             if self.addressArea:
-                pxFixGaps = self.addressWidth * self.pxCharWidth + self.pxGapAdr
+                pxFixGaps = self.calcAddrDigits(self.chunks.size) * self.pxCharWidth + self.pxGapAdr
             pxFixGaps += self.pxGapAdrHex
             if self.asciiArea:
                 pxFixGaps += self.pxGapHexAscii
@@ -868,7 +870,7 @@ class QHexEdit(QAbstractScrollArea):
         if self.addressArea:
             # The addressDigit is the total of digits that is used for represent the directions of memory
             # Old called to method: getAddressDigit()
-            self.addressDigit = 8
+            self.addressDigit = self.calcAddrDigits(self.chunks.size)
             self.pxPosHexX = self.pxGapAdr + self.addressDigit * self.pxCharWidth + self.pxGapAdrHex
         else:
             self.pxPosHexX = self.pxGapAdrHex
@@ -940,11 +942,15 @@ class QHexEdit(QAbstractScrollArea):
             ch = b[i:i+1].decode(encoding='ascii', errors='ignore')
             res += '.' if ch < ' ' or ch > '~' else ch
         return res
+    
+    def calcAddrDigits(self, size: int, base: int = 10) -> int:
+        res = self.addressWidth
+        if size > 0:
+            res = int(math.log(size, base)) + 1
+        return res if res > self.addressWidth else self.addressWidth
 
     def getAddrTemplate(self, size: int, base: int = 10) -> str:
-        if base == 10:
-            return "{0:0>4}" if size < 10000 else "{0:0>8}"
-        elif base == 8:
-            return "{0:0>4o}" if size < 0o10000 else "{0:0>8o}"
-        else:
-            return "{0:0>4x}" if size < 0x10000 else "{0:0>8x}"
+        symb = {10: '', 8: 'o', 16: 'x'}
+        if base not in symb: base = 10
+        dig = self.calcAddrDigits(size, base)
+        return f"{{0:0>{dig}{symb[base]}}}"
