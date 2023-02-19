@@ -280,10 +280,18 @@ class QHexEdit(QAbstractScrollArea):
         self.setCursorPosition(self.cursorPosition)
         self.viewport().update()
 
+    def getColorBrightness(self, c: QColor) -> int:
+        # http://alienryderflex.com/hsp.html
+        # https://www.nbdtech.com/Blog/archive/2008/04/27/Calculating-the-Perceived-Brightness-of-a-Color.aspx
+        # brightness  =  sqrt( .241 R^2 + .691 G^2 + .068 B^2 )
+        return int(math.sqrt(0.241 * c.red()**2 + 0.691 * c.green()**2 + 0.068 * c.blue()**2))
+
     def setHighlightingColor(self, color: QColor) -> None:
         self.brushHighlighted = QBrush(color)
         self.highlightingColor = color
-        self.penHighlighted = QPen(self.viewport().palette().color(QPalette.WindowText))
+        # penColor = self.viewport().palette().color(QPalette.WindowText)
+        penColor = Qt.white if self.getColorBrightness(color) < 130 else Qt.black
+        self.penHighlighted = QPen(penColor)
         self.viewport().update()
 
     def setOverwriteMode(self, mode: bool) -> None:
@@ -293,8 +301,10 @@ class QHexEdit(QAbstractScrollArea):
     def setSelectionColor(self, color: QColor) -> None:
         self.brushSelection = QBrush(color)
         self.selectionColor = color
-        self.penSelection = QPen(self.viewport().palette().color(QPalette.WindowText))
-        self.viewport().update()  
+        # penColor = self.viewport().palette().color(QPalette.WindowText)
+        penColor = Qt.white if self.getColorBrightness(color) < 130 else Qt.black
+        self.penSelection = QPen(penColor)
+        self.viewport().update()
 
     def setCursorPosition(self, position: int) -> None:
         
@@ -537,7 +547,7 @@ class QHexEdit(QAbstractScrollArea):
 
         # Copy
         if event.matches(QKeySequence.Copy):
-            # ba = bytearray
+            # ba = bytearray()
             ba = self.chunks.data(self.getSelectionBegin(), self.getSelectionEnd() - self.getSelectionBegin())
             buf = str()
             for i in range(0, len(ba), 32): # 32 bytes in a row
@@ -939,7 +949,7 @@ class QHexEdit(QAbstractScrollArea):
     
     def calcAddrDigits(self, size: int, base: int = 10) -> int:
         res = self.addressWidth
-        if size > 0:
+        if size >= 1:
             res = int(math.log(size, base)) + 1
         return res if res > self.addressWidth else self.addressWidth
 

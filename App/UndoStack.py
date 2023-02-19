@@ -80,7 +80,7 @@ class UndoStack(QUndoStack):
                 cc = CharCommand(self.chunks, CCmd.insert, pos, ba)
                 self.push(cc)
             elif len(ba) > 1:
-                txt = "Insert {} chars".format(len(ba))
+                txt = f"Insert {len(ba)} chars"
                 self.beginMacro(txt)
                 for i in range(len(ba)):
                     cc = CharCommand(self.chunks, CCmd.insert, pos + i, ba[i:i+1])

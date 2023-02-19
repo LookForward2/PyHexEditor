@@ -1,6 +1,6 @@
 import sys
-from PyQt5.QtGui import QColor, QFont, QPalette, QPen, QBrush
-from PyQt5.QtWidgets import QDialog, QMessageBox, QColorDialog, QFontDialog
+from PyQt5.QtGui import QColor, QFont, QPalette
+from PyQt5.QtWidgets import QDialog, QColorDialog, QFontDialog
 from PyQt5.QtCore import QSettings
 from PyQt5.QtCore import pyqtSignal as QSignal
 
