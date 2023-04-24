@@ -3,6 +3,7 @@ PyHexEditor is forked from Andres6936/Hex that in fact is QHexEdit which functio
 https://github.com/Andres6936/Hex
 
 The goal is to add into PyHexEditor base functional of QHexEdit.
+The goal is achived.
 
 -----------------------------------------------------------------------------------------------------------------------
 
